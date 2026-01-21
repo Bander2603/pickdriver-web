@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "reXX9PJ3oNc=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\dusdu\\Desktop\\pickdriver-web\\PickDriverWeb.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\dusdu\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.2\\microsoft.aspnetcore.app.internal.assets.10.0.2.nupkg.sha512"
+  ],
+  "logs": []
+}
