@@ -1,0 +1,117 @@
+﻿@page "/register"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject AuthService AuthService
+
+<PageTitle>Crear cuenta</PageTitle>
+
+<h1>Crear cuenta</h1>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (isSuccess)
+{
+    <div class="alert alert-success" role="alert">
+        Registro completado. Revisa tu email para verificar la cuenta antes de iniciar sesion.
+    </div>
+
+    if (!string.IsNullOrWhiteSpace(verificationToken))
+    {
+        <div class="alert alert-secondary" role="alert">
+            Token de verificacion (solo entornos no productivos): <strong>@verificationToken</strong>
+        </div>
+    }
+
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="verify-email">Verificar email</a>
+        <a class="btn btn-primary" href="login">Iniciar sesion</a>
+    </div>
+}
+else
+{
+    <EditForm Model="model" OnValidSubmit="HandleRegister">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label" for="register-username">Usuario</label>
+            <InputText id="register-username" class="form-control" autocomplete="username" @bind-Value="model.Username" />
+            <ValidationMessage For="() => model.Username" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="register-email">Email</label>
+            <InputText id="register-email" class="form-control" type="email" autocomplete="email" @bind-Value="model.Email" />
+            <ValidationMessage For="() => model.Email" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="register-password">Password</label>
+            <InputText id="register-password" class="form-control" type="password" autocomplete="new-password" @bind-Value="model.Password" />
+            <ValidationMessage For="() => model.Password" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="register-confirm">Confirmar password</label>
+            <InputText id="register-confirm" class="form-control" type="password" autocomplete="new-password" @bind-Value="model.ConfirmPassword" />
+            <ValidationMessage For="() => model.ConfirmPassword" />
+        </div>
+
+        <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
+            @(isSubmitting ? "Creando..." : "Crear cuenta")
+        </button>
+    </EditForm>
+}
+
+@code {
+    private readonly RegisterFormModel model = new();
+    private bool isSubmitting;
+    private bool isSuccess;
+    private string? errorMessage;
+    private string? verificationToken;
+
+    private async Task HandleRegister()
+    {
+        errorMessage = null;
+        isSubmitting = true;
+
+        var result = await AuthService.RegisterAsync(new RegisterRequest
+        {
+            Username = model.Username.Trim(),
+            Email = model.Email.Trim(),
+            Password = model.Password
+        });
+
+        isSubmitting = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            isSuccess = true;
+            verificationToken = result.Data.VerificationToken;
+            return;
+        }
+
+        errorMessage = result.ErrorMessage ?? "No se pudo completar el registro.";
+    }
+
+    private sealed class RegisterFormModel
+    {
+        [Required(ErrorMessage = "El usuario es obligatorio.")]
+        [StringLength(50, MinimumLength = 3, ErrorMessage = "El usuario debe tener entre 3 y 50 caracteres.")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El email es obligatorio.")]
+        [EmailAddress(ErrorMessage = "Email invalido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La password es obligatoria.")]
+        [MinLength(8, ErrorMessage = "La password debe tener al menos 8 caracteres.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Compare(nameof(Password), ErrorMessage = "Las passwords no coinciden.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

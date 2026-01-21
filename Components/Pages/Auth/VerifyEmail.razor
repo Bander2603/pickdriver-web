@@ -1,0 +1,131 @@
+﻿@page "/verify-email"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject AuthService AuthService
+
+<PageTitle>Verificar email</PageTitle>
+
+<h1>Verificar email</h1>
+
+@if (!string.IsNullOrWhiteSpace(verifyError))
+{
+    <div class="alert alert-danger" role="alert">@verifyError</div>
+}
+@if (!string.IsNullOrWhiteSpace(verifySuccess))
+{
+    <div class="alert alert-success" role="alert">@verifySuccess</div>
+}
+
+<EditForm Model="verifyModel" OnValidSubmit="HandleVerify">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label" for="verify-token">Token de verificacion</label>
+        <InputText id="verify-token" class="form-control" @bind-Value="verifyModel.Token" />
+        <ValidationMessage For="() => verifyModel.Token" />
+    </div>
+
+    <button class="btn btn-primary" type="submit" disabled="@isVerifying">
+        @(isVerifying ? "Verificando..." : "Verificar")
+    </button>
+</EditForm>
+
+<hr />
+
+<h2>Reenviar verificacion</h2>
+
+@if (!string.IsNullOrWhiteSpace(resendError))
+{
+    <div class="alert alert-danger" role="alert">@resendError</div>
+}
+@if (!string.IsNullOrWhiteSpace(resendSuccess))
+{
+    <div class="alert alert-success" role="alert">@resendSuccess</div>
+}
+
+<EditForm Model="resendModel" OnValidSubmit="HandleResend">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label" for="resend-email">Email</label>
+        <InputText id="resend-email" class="form-control" type="email" autocomplete="email" @bind-Value="resendModel.Email" />
+        <ValidationMessage For="() => resendModel.Email" />
+    </div>
+
+    <button class="btn btn-outline-primary" type="submit" disabled="@isResending">
+        @(isResending ? "Enviando..." : "Reenviar")
+    </button>
+</EditForm>
+
+@code {
+    private readonly VerifyModel verifyModel = new();
+    private readonly ResendModel resendModel = new();
+    private bool isVerifying;
+    private bool isResending;
+    private string? verifyError;
+    private string? verifySuccess;
+    private string? resendError;
+    private string? resendSuccess;
+
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(Token))
+        {
+            verifyModel.Token = Token;
+        }
+    }
+
+    private async Task HandleVerify()
+    {
+        verifyError = null;
+        verifySuccess = null;
+        isVerifying = true;
+
+        var result = await AuthService.VerifyEmailAsync(verifyModel.Token.Trim());
+
+        isVerifying = false;
+
+        if (result.Success && result.Data is not null && result.Data.Verified)
+        {
+            verifySuccess = "Email verificado correctamente. Ya puedes iniciar sesion.";
+            return;
+        }
+
+        verifyError = result.ErrorMessage ?? "No se pudo verificar el email.";
+    }
+
+    private async Task HandleResend()
+    {
+        resendError = null;
+        resendSuccess = null;
+        isResending = true;
+
+        var result = await AuthService.ResendVerificationAsync(resendModel.Email.Trim());
+
+        isResending = false;
+
+        if (result.Success)
+        {
+            resendSuccess = result.Data?.Message ?? "Enviamos un nuevo email de verificacion.";
+            return;
+        }
+
+        resendError = result.ErrorMessage ?? "No se pudo reenviar la verificacion.";
+    }
+
+    private sealed class VerifyModel
+    {
+        [Required(ErrorMessage = "El token es obligatorio.")]
+        public string Token { get; set; } = string.Empty;
+    }
+
+    private sealed class ResendModel
+    {
+        [Required(ErrorMessage = "El email es obligatorio.")]
+        [EmailAddress(ErrorMessage = "Email invalido.")]
+        public string Email { get; set; } = string.Empty;
+    }
+}

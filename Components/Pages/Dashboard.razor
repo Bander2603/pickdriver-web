@@ -1,0 +1,356 @@
+﻿@page "/dashboard"
+@using System.Globalization
+@using System.Text.Json
+@inject ApiClient ApiClient
+@inject AuthSessionStore AuthSessionStore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dashboard</PageTitle>
+
+<h1>Dashboard</h1>
+
+@if (!isAuthorized)
+{
+    <p>Redirigiendo al login...</p>
+}
+else if (isLoading)
+{
+    <p><em>Cargando datos...</em></p>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="h5">Proxima carrera</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(nextRaceError))
+                    {
+                        <div class="alert alert-warning" role="alert">@nextRaceError</div>
+                    }
+                    else if (nextRace is null)
+                    {
+                        <p class="text-muted">No hay carrera cargada.</p>
+                    }
+                    else
+                    {
+                        <p class="mb-1"><strong>@nextRace.Name</strong></p>
+                        <p class="mb-1">Circuito: @nextRace.CircuitName</p>
+                        <p class="mb-1">Round: @nextRace.Round</p>
+                        <p class="mb-0">Carrera: @FormatRaceDate(nextRace.RaceTime)</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="h5">Tus ligas</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(leaguesError))
+                    {
+                        <div class="alert alert-warning" role="alert">@leaguesError</div>
+                    }
+                    else if (leagueItems.Count == 0)
+                    {
+                        <p class="text-muted">Todavia no estas en ninguna liga.</p>
+                    }
+                    else
+                    {
+                        if (leaguePositionsPartial)
+                        {
+                            <p class="text-muted">No se pudo calcular la posicion en todas las ligas.</p>
+                        }
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Liga</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Posicion</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in leagueItems)
+                                    {
+                                        <tr>
+                                            <td>@item.League.Name</td>
+                                            <td>@item.League.Status</td>
+                                            <td class="text-end">@item.PositionLabel</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Standings F1</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(standingsError))
+                    {
+                        <div class="alert alert-warning" role="alert">@standingsError</div>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-7">
+                                <h3 class="h6">Top 5 pilotos</h3>
+                                @if (topDrivers.Count == 0)
+                                {
+                                    <p class="text-muted">Sin datos.</p>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Piloto</th>
+                                                    <th class="text-end">Puntos</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (var i = 0; i < topDrivers.Count; i++)
+                                                {
+                                                    var driver = topDrivers[i];
+                                                    <tr>
+                                                        <td>@(i + 1)</td>
+                                                        <td>@FormatDriverName(driver)</td>
+                                                        <td class="text-end">@driver.Points</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                            <div class="col-12 col-lg-5">
+                                <h3 class="h6">Top 3 equipos</h3>
+                                @if (topTeams.Count == 0)
+                                {
+                                    <p class="text-muted">Sin datos.</p>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Equipo</th>
+                                                    <th class="text-end">Puntos</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (var i = 0; i < topTeams.Count; i++)
+                                                {
+                                                    var team = topTeams[i];
+                                                    <tr>
+                                                        <td>@(i + 1)</td>
+                                                        <td>@team.Name</td>
+                                                        <td class="text-end">@team.Points</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isAuthorized;
+    private Race? nextRace;
+    private string? nextRaceError;
+    private string? leaguesError;
+    private string? standingsError;
+    private bool leaguePositionsPartial;
+    private readonly List<LeagueDashboardItem> leagueItems = new();
+    private readonly List<DriverStanding> topDrivers = new();
+    private readonly List<TeamStanding> topTeams = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthorized = authState.User.Identity?.IsAuthenticated == true;
+        if (!isAuthorized)
+        {
+            RedirectToLogin();
+            isLoading = false;
+            return;
+        }
+
+        var session = await AuthSessionStore.GetAsync();
+        var userId = session?.User.Id ?? 0;
+
+        var raceTask = ApiClient.GetAsync<JsonElement>("races/upcoming");
+        var leaguesTask = ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
+        var driversTask = ApiClient.GetAsync<List<DriverStanding>>("standings/f1/drivers");
+        var teamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+
+        await Task.WhenAll(raceTask, leaguesTask, driversTask, teamsTask);
+
+        var raceResult = await raceTask;
+        if (raceResult.Success && TryParseRace(raceResult.Data, out var race))
+        {
+            nextRace = race;
+        }
+        else
+        {
+            nextRaceError = raceResult.ErrorMessage ?? "No se pudo cargar la proxima carrera.";
+        }
+
+        var leaguesResult = await leaguesTask;
+        if (leaguesResult.Success && leaguesResult.Data is not null)
+        {
+            await LoadLeaguePositionsAsync(leaguesResult.Data, userId);
+        }
+        else if (!leaguesResult.Success)
+        {
+            leaguesError = leaguesResult.ErrorMessage ?? "No se pudieron cargar las ligas.";
+        }
+
+        var driversResult = await driversTask;
+        var teamsResult = await teamsTask;
+        if (driversResult.Success && teamsResult.Success)
+        {
+            if (driversResult.Data is not null)
+            {
+                topDrivers.AddRange(driversResult.Data
+                    .OrderByDescending(driver => driver.Points)
+                    .Take(5));
+            }
+
+            if (teamsResult.Data is not null)
+            {
+                topTeams.AddRange(teamsResult.Data
+                    .OrderByDescending(team => team.Points)
+                    .Take(3));
+            }
+        }
+        else
+        {
+            standingsError = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los standings.";
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadLeaguePositionsAsync(List<LeaguePublic> leagues, int userId)
+    {
+        leagueItems.Clear();
+        leaguePositionsPartial = false;
+
+        foreach (var league in leagues)
+        {
+            var positionLabel = "-";
+            var standingsResult = await ApiClient.GetAsync<List<PlayerStanding>>(
+                $"players/standings/players?league_id={league.Id}",
+                auth: true);
+
+            if (standingsResult.Success && standingsResult.Data is not null)
+            {
+                var ordered = standingsResult.Data
+                    .OrderByDescending(item => item.TotalPoints)
+                    .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var index = ordered.FindIndex(item => item.UserId == userId);
+                if (index >= 0)
+                {
+                    positionLabel = $"{index + 1} / {ordered.Count}";
+                }
+                else
+                {
+                    positionLabel = $"- / {ordered.Count}";
+                }
+            }
+            else
+            {
+                leaguePositionsPartial = true;
+            }
+
+            leagueItems.Add(new LeagueDashboardItem(league, positionLabel));
+        }
+    }
+
+    private void RedirectToLogin()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+    private static bool TryParseRace(JsonElement payload, out Race? race)
+    {
+        race = null;
+
+        if (payload.ValueKind == JsonValueKind.Object)
+        {
+            race = payload.Deserialize<Race>(ApiJson.Options);
+            return race is not null;
+        }
+
+        if (payload.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in payload.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                race = item.Deserialize<Race>(ApiJson.Options);
+                if (race is not null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static string FormatRaceDate(DateTimeOffset? date)
+    {
+        if (!date.HasValue)
+        {
+            return "Por confirmar";
+        }
+
+        return date.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDriverName(DriverStanding driver)
+    {
+        if (!string.IsNullOrWhiteSpace(driver.DriverCode))
+        {
+            return $"{driver.DriverCode} - {driver.FirstName} {driver.LastName}";
+        }
+
+        return $"{driver.FirstName} {driver.LastName}";
+    }
+
+    private sealed record LeagueDashboardItem(LeaguePublic League, string PositionLabel);
+}

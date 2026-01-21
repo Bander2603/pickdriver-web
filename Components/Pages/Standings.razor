@@ -1,0 +1,129 @@
+﻿@page "/standings"
+@inject ApiClient ApiClient
+
+<PageTitle>Standings</PageTitle>
+
+<h1>Standings</h1>
+
+@if (isLoading)
+{
+    <p><em>Cargando standings...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-12 col-lg-7">
+            <h2 class="h5">Pilotos</h2>
+            @if (drivers.Count == 0)
+            {
+                <p class="text-muted">Sin datos.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Piloto</th>
+                                <th class="text-end">Puntos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < drivers.Count; i++)
+                            {
+                                var driver = drivers[i];
+                                <tr>
+                                    <td>@(i + 1)</td>
+                                    <td>@FormatDriverName(driver)</td>
+                                    <td class="text-end">@driver.Points</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="col-12 col-lg-5">
+            <h2 class="h5">Equipos</h2>
+            @if (teams.Count == 0)
+            {
+                <p class="text-muted">Sin datos.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Equipo</th>
+                                <th class="text-end">Puntos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < teams.Count; i++)
+                            {
+                                var team = teams[i];
+                                <tr>
+                                    <td>@(i + 1)</td>
+                                    <td>@team.Name</td>
+                                    <td class="text-end">@team.Points</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private readonly List<DriverStanding> drivers = new();
+    private readonly List<TeamStanding> teams = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var driversTask = ApiClient.GetAsync<List<DriverStanding>>("standings/f1/drivers");
+        var teamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+
+        await Task.WhenAll(driversTask, teamsTask);
+
+        var driversResult = await driversTask;
+        var teamsResult = await teamsTask;
+
+        if (driversResult.Success && driversResult.Data is not null)
+        {
+            drivers.AddRange(driversResult.Data.OrderByDescending(driver => driver.Points));
+        }
+
+        if (teamsResult.Success && teamsResult.Data is not null)
+        {
+            teams.AddRange(teamsResult.Data.OrderByDescending(team => team.Points));
+        }
+
+        if (!driversResult.Success || !teamsResult.Success)
+        {
+            errorMessage = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los standings.";
+        }
+
+        isLoading = false;
+    }
+
+    private static string FormatDriverName(DriverStanding driver)
+    {
+        if (!string.IsNullOrWhiteSpace(driver.DriverCode))
+        {
+            return $"{driver.DriverCode} - {driver.FirstName} {driver.LastName}";
+        }
+
+        return $"{driver.FirstName} {driver.LastName}";
+    }
+}

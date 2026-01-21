@@ -1,0 +1,77 @@
+﻿@page "/races"
+@using System.Globalization
+@inject ApiClient ApiClient
+
+<PageTitle>Carreras</PageTitle>
+
+<h1>Carreras</h1>
+
+@if (isLoading)
+{
+    <p><em>Cargando carreras...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+else if (races.Count == 0)
+{
+    <p class="text-muted">Sin carreras disponibles.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Carrera</th>
+                    <th>Circuito</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var race in races)
+                {
+                    <tr>
+                        <td>@race.Round</td>
+                        <td>@race.Name</td>
+                        <td>@race.CircuitName</td>
+                        <td>@FormatRaceDate(race.RaceTime)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private readonly List<Race> races = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await ApiClient.GetAsync<List<Race>>("races");
+        if (result.Success && result.Data is not null)
+        {
+            races.AddRange(result.Data.OrderBy(race => race.Round));
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "No se pudieron cargar las carreras.";
+        }
+
+        isLoading = false;
+    }
+
+    private static string FormatRaceDate(DateTimeOffset? date)
+    {
+        if (!date.HasValue)
+        {
+            return "Por confirmar";
+        }
+
+        return date.Value.ToLocalTime().ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    }
+}

@@ -1,0 +1,88 @@
+﻿@page "/leagues"
+@inject ApiClient ApiClient
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Ligas</PageTitle>
+
+<h1>Ligas</h1>
+
+@if (!isAuthorized)
+{
+    <p>Redirigiendo al login...</p>
+}
+else if (isLoading)
+{
+    <p><em>Cargando ligas...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+else if (leagues.Count == 0)
+{
+    <p class="text-muted">Todavia no estas en ninguna liga.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Status</th>
+                    <th class="text-end">Max jugadores</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var league in leagues)
+                {
+                    <tr>
+                        <td>@league.Name</td>
+                        <td>@league.Status</td>
+                        <td class="text-end">@league.MaxPlayers</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isAuthorized;
+    private string? errorMessage;
+    private readonly List<LeaguePublic> leagues = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthorized = authState.User.Identity?.IsAuthenticated == true;
+        if (!isAuthorized)
+        {
+            RedirectToLogin();
+            isLoading = false;
+            return;
+        }
+
+        var result = await ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            leagues.AddRange(result.Data);
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "No se pudieron cargar las ligas.";
+        }
+
+        isLoading = false;
+    }
+
+    private void RedirectToLogin()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+}

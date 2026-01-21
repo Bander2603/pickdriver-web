@@ -1,0 +1,78 @@
+﻿@page "/profile"
+@inject ApiClient ApiClient
+@inject AuthSessionStore AuthSessionStore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Perfil</PageTitle>
+
+<h1>Perfil</h1>
+
+@if (!isAuthorized)
+{
+    <p>Redirigiendo al login...</p>
+}
+else if (isLoading)
+{
+    <p><em>Cargando perfil...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+
+@if (profile is not null)
+{
+    <dl class="row">
+        <dt class="col-sm-3">Usuario</dt>
+        <dd class="col-sm-9">@profile.Username</dd>
+
+        <dt class="col-sm-3">Email</dt>
+        <dd class="col-sm-9">@profile.Email</dd>
+
+        <dt class="col-sm-3">Email verificado</dt>
+        <dd class="col-sm-9">@(profile.EmailVerified ? "Si" : "No")</dd>
+    </dl>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isAuthorized;
+    private string? errorMessage;
+    private UserPublic? profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthorized = authState.User.Identity?.IsAuthenticated == true;
+        if (!isAuthorized)
+        {
+            RedirectToLogin();
+            isLoading = false;
+            return;
+        }
+
+        var session = await AuthSessionStore.GetAsync();
+        profile = session?.User;
+
+        var result = await ApiClient.GetAsync<UserPublic>("auth/profile", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            profile = result.Data;
+        }
+        else if (!result.Success)
+        {
+            errorMessage = result.ErrorMessage ?? "No se pudo cargar el perfil.";
+        }
+
+        isLoading = false;
+    }
+
+    private void RedirectToLogin()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+}
