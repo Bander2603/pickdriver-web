@@ -66,10 +66,6 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm9maWxlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/dusdu/Desktop/pickdriver-web/Components/Pages/Races.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSYWNlcy5yYXpvcg==
-build_metadata.AdditionalFiles.CssScope = 
-
 [C:/Users/dusdu/Desktop/pickdriver-web/Components/Pages/Standings.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdGFuZGluZ3MucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -101,3 +97,7 @@ build_metadata.AdditionalFiles.CssScope = b-5r2qhqmlhq
 [C:/Users/dusdu/Desktop/pickdriver-web/Components/Layout/ReconnectModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcUmVjb25uZWN0TW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-veex1ssgdt
+
+[C:/Users/dusdu/Desktop/pickdriver-web/Components/Pages/Races.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSYWNlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-tzpgd4nvg4

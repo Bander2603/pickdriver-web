@@ -1,78 +1,25 @@
-﻿@inject AuthService AuthService
-@inject NavigationManager NavigationManager
-
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">PickDriver</a>
+<div class="app-nav">
+    <div class="app-nav__brand">
+        <NavLink class="app-brand" href="">PickDriver</NavLink>
+        <span class="app-brand__tag">liga</span>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <nav class="app-nav__links" aria-label="Primary">
+        <NavLink class="app-nav__link" href="dashboard">Dashboard</NavLink>
+        <NavLink class="app-nav__link" href="leagues">Ligas</NavLink>
+        <NavLink class="app-nav__link" href="races">Carreras</NavLink>
+        <NavLink class="app-nav__link" href="standings">Standings</NavLink>
+    </nav>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="dashboard">
-                Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="leagues">
-                Ligas
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="races">
-                Carreras
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="standings">
-                Standings
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="profile">
-                Perfil
-            </NavLink>
-        </div>
-
+    <div class="app-nav__auth">
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <span class="nav-link">Hola, @context.User.Identity?.Name</span>
-                </div>
-                <div class="nav-item px-3">
-                    <button class="nav-link btn btn-link w-100 text-start" type="button" @onclick="LogoutAsync">
-                        Cerrar sesion
-                    </button>
-                </div>
+                <NavLink class="app-button app-button--ghost" href="profile">Mi perfil</NavLink>
             </Authorized>
             <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="login">
-                        Iniciar sesion
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="register">
-                        Crear cuenta
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="verify-email">
-                        Verificar email
-                    </NavLink>
-                </div>
+                <NavLink class="app-nav__link app-nav__link--muted" href="login">Iniciar sesion</NavLink>
+                <NavLink class="app-button" href="register">Registro</NavLink>
             </NotAuthorized>
         </AuthorizeView>
-    </nav>
+    </div>
 </div>
-
-@code {
-    private async Task LogoutAsync()
-    {
-        await AuthService.LogoutAsync();
-        NavigationManager.NavigateTo("/");
-    }
-}

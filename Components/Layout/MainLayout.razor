@@ -1,16 +1,14 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <span class="text-muted">PickDriver</span>
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-header__inner">
+            <NavMenu />
         </div>
+    </header>
 
-        <article class="content px-4">
+    <main class="app-main">
+        <article class="content">
             @Body
         </article>
     </main>

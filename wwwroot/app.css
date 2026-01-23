@@ -1,23 +1,86 @@
+:root {
+    --pd-bg: #0b0d12;
+    --pd-surface: #151a24;
+    --pd-surface-alt: #1b2230;
+    --pd-text: #f2f4f8;
+    --pd-muted: #9aa3b2;
+    --pd-border: #2a3140;
+    --pd-accent: #e10600;
+    --pd-accent-strong: #ff3b2f;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    height: 100%;
+    font-family: "Bahnschrift", "Franklin Gothic Medium", "Segoe UI", sans-serif;
+}
+
+body {
+    margin: 0;
+    color: var(--pd-text);
+    background-color: var(--pd-bg);
+    background-image:
+        radial-gradient(900px circle at 15% 10%, rgba(225, 6, 0, 0.18), transparent 60%),
+        radial-gradient(700px circle at 85% 20%, rgba(74, 110, 255, 0.14), transparent 65%),
+        repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.04) 0, rgba(255, 255, 255, 0.04) 1px, transparent 1px, transparent 14px),
+        linear-gradient(150deg, #0b0d12 0%, #111826 55%, #0b0d12 100%);
+    background-attachment: fixed;
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: #ff6a5c;
+}
+
+a:hover, .btn-link:hover {
+    color: #ff8b7f;
 }
 
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background-color: var(--pd-accent);
+    border-color: var(--pd-accent);
+}
+
+.btn-primary:hover {
+    background-color: var(--pd-accent-strong);
+    border-color: var(--pd-accent-strong);
+}
+
+.btn-outline-primary {
+    color: var(--pd-accent);
+    border-color: var(--pd-accent);
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: var(--pd-accent);
+    border-color: var(--pd-accent);
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem rgba(255, 255, 255, 0.2), 0 0 0 0.25rem rgba(225, 6, 0, 0.45);
 }
 
-.content {
-    padding-top: 1.1rem;
+h1, h2 {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.text-muted {
+    color: var(--pd-muted) !important;
+}
+
+.table {
+    color: var(--pd-text);
+}
+
+.table > :not(caption) > * > * {
+    background-color: transparent;
+    border-color: var(--pd-border);
+}
+
+.table thead th {
+    color: var(--pd-muted);
+    border-bottom-color: var(--pd-border);
 }
 
 h1:focus {

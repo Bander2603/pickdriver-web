@@ -1,0 +1,122 @@
+.races-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.races-subtitle {
+    margin: 0;
+}
+
+.race-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.race-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1.5rem;
+    min-height: 190px;
+    border-radius: 18px;
+    background: var(--pd-surface);
+    border: 1px solid var(--pd-border);
+    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.race-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 55%);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.race-card::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--pd-accent), transparent);
+    opacity: 0.7;
+}
+
+.race-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45);
+}
+
+.race-card--featured {
+    background: linear-gradient(120deg, rgba(225, 6, 0, 0.95), rgba(225, 6, 0, 0.45)), var(--pd-surface);
+    border-color: rgba(255, 90, 70, 0.7);
+}
+
+.race-card--featured::after {
+    background: linear-gradient(90deg, #fff, transparent);
+}
+
+.race-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--pd-muted);
+}
+
+.race-card__title {
+    margin: 0.85rem 0 0.2rem;
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+}
+
+.race-card__circuit {
+    margin: 0;
+    color: var(--pd-muted);
+    font-size: 0.92rem;
+}
+
+.race-card__footer {
+    margin-top: auto;
+    padding-top: 1rem;
+}
+
+.race-card__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--pd-text);
+    background: rgba(15, 18, 28, 0.6);
+}
+
+.race-card--featured .race-card__top,
+.race-card--featured .race-card__circuit,
+.race-card--featured .race-card__status {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 640px) {
+    .races-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}

@@ -4,7 +4,12 @@
 
 <PageTitle>Carreras</PageTitle>
 
-<h1>Carreras</h1>
+<div class="races-header">
+    <div>
+        <h1>Carreras</h1>
+        <p class="races-subtitle text-muted">Calendario de la temporada.</p>
+    </div>
+</div>
 
 @if (isLoading)
 {
@@ -20,28 +25,23 @@ else if (races.Count == 0)
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th>Round</th>
-                    <th>Carrera</th>
-                    <th>Circuito</th>
-                    <th>Fecha</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var race in races)
-                {
-                    <tr>
-                        <td>@race.Round</td>
-                        <td>@race.Name</td>
-                        <td>@race.CircuitName</td>
-                        <td>@FormatRaceDate(race.RaceTime)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="race-grid">
+        @for (var i = 0; i < races.Count; i++)
+        {
+            var race = races[i];
+            var isFeatured = i == 0;
+            <article class="race-card @(isFeatured ? "race-card--featured" : string.Empty)">
+                <div class="race-card__top">
+                    <span class="race-card__round">Round @race.Round</span>
+                    <span class="race-card__date">@FormatRaceDate(race.RaceTime)</span>
+                </div>
+                <h2 class="race-card__title">@race.Name</h2>
+                <p class="race-card__circuit">@race.CircuitName</p>
+                <div class="race-card__footer">
+                    <span class="race-card__status">@GetStatusLabel(race)</span>
+                </div>
+            </article>
+        }
     </div>
 }
 
@@ -73,5 +73,10 @@ else
         }
 
         return date.Value.ToLocalTime().ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string GetStatusLabel(Race race)
+    {
+        return race.RaceTime.HasValue ? "Fecha confirmada" : "Fecha por confirmar";
     }
 }
