@@ -1,4 +1,6 @@
-﻿namespace PickDriverWeb.Models.Races;
+using System.Text.Json.Serialization;
+
+namespace PickDriverWeb.Models.Races;
 
 public sealed class Race
 {
@@ -23,10 +25,16 @@ public sealed class Race
 
 public sealed class CircuitData
 {
+    [JsonPropertyName("laps")]
     public int? Laps { get; set; }
+    [JsonPropertyName("first_gp")]
     public int? FirstGp { get; set; }
+    [JsonPropertyName("race_distance")]
     public double? RaceDistance { get; set; }
+    [JsonPropertyName("circuit_length")]
     public double? CircuitLength { get; set; }
+    [JsonPropertyName("lap_record_time")]
     public string? LapRecordTime { get; set; }
+    [JsonPropertyName("lap_record_driver")]
     public string? LapRecordDriver { get; set; }
 }

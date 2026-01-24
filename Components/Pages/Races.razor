@@ -1,6 +1,7 @@
 ﻿@page "/races"
-@using System.Globalization
+@using Microsoft.AspNetCore.Components
 @inject ApiClient ApiClient
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Carreras</PageTitle>
 
@@ -25,22 +26,85 @@ else if (races.Count == 0)
 }
 else
 {
-    <div class="race-grid">
+    <div class="race-grid" @ref="raceGridRef">
         @for (var i = 0; i < races.Count; i++)
         {
             var race = races[i];
-            var isFeatured = i == 0;
-            <article class="race-card @(isFeatured ? "race-card--featured" : string.Empty)">
+            var isFeatured = featuredRaceId.HasValue && race.Id == featuredRaceId.Value;
+            var isSelected = selectedRaceId.HasValue && race.Id == selectedRaceId.Value;
+            <button type="button" class="race-card @(isFeatured ? "race-card--featured" : string.Empty) @(isSelected ? "race-card--selected" : string.Empty)" @onclick="() => SelectRaceAsync(race, i)" @key="race.Id">
                 <div class="race-card__top">
                     <span class="race-card__round">Round @race.Round</span>
-                    <span class="race-card__date">@FormatRaceDate(race.RaceTime)</span>
                 </div>
-                <h2 class="race-card__title">@race.Name</h2>
-                <p class="race-card__circuit">@race.CircuitName</p>
+                <div class="race-card__country">
+                    <div class="race-card__flag" style="background-image: url('@GetFlagUrl(race)')"></div>
+                    <h2 class="race-card__title">@GetRaceCountry(race)</h2>
+                </div>
+                <p class="race-card__event">@race.Name</p>
                 <div class="race-card__footer">
-                    <span class="race-card__status">@GetStatusLabel(race)</span>
+                    <span class="race-card__date-range">@GetRaceDateRange(race)</span>
+                    <div class="race-card__circuit" style="background-image: url('@GetCircuitSimpleUrl(race)')"></div>
                 </div>
-            </article>
+            </button>
+
+            @if (selectedRace is not null && detailsInsertAfterIndex == i)
+            {
+                <div class="race-details race-details--inline @(isClosing ? "race-details--closing" : string.Empty)" @key="detailsKey" @ref="detailsRef">
+                    <div class="race-details__left">
+                        <div class="race-details__image">
+                            <img src="@GetCircuitUrl(selectedRace)" alt="Circuito @selectedRace.CircuitName" />
+                        </div>
+                        <div class="race-details__meta">
+                            <div class="race-details__row">
+                                <span class="race-details__label">Longitud del circuito</span>
+                                <span class="race-details__value">@FormatKilometers(selectedRace.CircuitData?.CircuitLength)</span>
+                            </div>
+                            <div class="race-details__row">
+                                <span class="race-details__label">Distancia de carrera</span>
+                                <span class="race-details__value">@FormatKilometers(selectedRace.CircuitData?.RaceDistance)</span>
+                            </div>
+                            <div class="race-details__row">
+                                <span class="race-details__label">Record de vuelta</span>
+                                <span class="race-details__value">@FormatLapRecord(selectedRace.CircuitData)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="race-details__right">
+                        <div class="race-details__header">
+                            <h2 class="race-details__title">Horarios</h2>
+                            <div class="race-details__toggle" role="group" aria-label="Tipo de horario">
+                                <button type="button" class="race-toggle @(useTrackTime ? string.Empty : "active")" @onclick="() => SetScheduleMode(false)">Mi hora</button>
+                                <button type="button" class="race-toggle @(useTrackTime ? "active" : string.Empty)" @onclick="() => SetScheduleMode(true)">Hora circuito</button>
+                            </div>
+                        </div>
+                        <span class="race-details__subtitle">@GetScheduleModeLabel()</span>
+                        <div class="race-schedule">
+                            @{
+                                var scheduleItems = GetScheduleItems(selectedRace);
+                            }
+                            @if (scheduleItems.Count == 0)
+                            {
+                                <p class="text-muted">Sin horarios confirmados.</p>
+                            }
+                            else
+                            {
+                                @foreach (var item in scheduleItems)
+                                {
+                                    var displayTime = GetScheduleDisplayTime(item, selectedRace);
+                                    <div class="race-schedule__item">
+                                        <div class="race-schedule__date">
+                                            <span class="race-schedule__day">@displayTime.ToString("dd")</span>
+                                            <span class="race-schedule__month">@GetMonthCode(displayTime.Month)</span>
+                                        </div>
+                                        <div class="race-schedule__label">@item.Label</div>
+                                        <div class="race-schedule__time">@displayTime.ToString("HH:mm")</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         }
     </div>
 }
@@ -49,6 +113,16 @@ else
     private bool isLoading = true;
     private string? errorMessage;
     private readonly List<Race> races = new();
+    private int? featuredRaceId;
+    private int? selectedRaceId;
+    private Race? selectedRace;
+    private bool useTrackTime;
+    private int detailsInsertAfterIndex = -1;
+    private ElementReference raceGridRef;
+    private ElementReference detailsRef;
+    private bool shouldScrollToDetails;
+    private bool isClosing;
+    private string? detailsKey;
 
     protected override async Task OnInitializedAsync()
     {
@@ -56,6 +130,7 @@ else
         if (result.Success && result.Data is not null)
         {
             races.AddRange(result.Data.OrderBy(race => race.Round));
+            featuredRaceId = GetNextRaceId(races);
         }
         else
         {
@@ -65,18 +140,350 @@ else
         isLoading = false;
     }
 
-    private static string FormatRaceDate(DateTimeOffset? date)
+    private static string GetRaceCountry(Race race)
     {
-        if (!date.HasValue)
+        return string.IsNullOrWhiteSpace(race.Country) ? race.Name : race.Country;
+    }
+
+    private static string GetRaceDateRange(Race race)
+    {
+        if (!race.Fp1Time.HasValue || !race.RaceTime.HasValue)
         {
             return "Por confirmar";
         }
 
-        return date.Value.ToLocalTime().ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+        var fp1Date = race.Fp1Time.Value.ToLocalTime();
+        var raceDate = race.RaceTime.Value.ToLocalTime();
+        var monthCode = GetMonthCode(raceDate.Month);
+
+        return $"{fp1Date:dd} - {raceDate:dd} {monthCode}";
     }
 
-    private static string GetStatusLabel(Race race)
+    private static bool TryGetEventWindow(Race race, out DateTimeOffset startDate, out DateTimeOffset endDate)
     {
-        return race.RaceTime.HasValue ? "Fecha confirmada" : "Fecha por confirmar";
+        startDate = default;
+        endDate = default;
+        var hasDate = false;
+
+        var dates = new[]
+        {
+            race.Fp1Time,
+            race.Fp2Time,
+            race.Fp3Time,
+            race.QualifyingTime,
+            race.SprintQualifyingTime,
+            race.SprintTime,
+            race.RaceTime
+        };
+
+        foreach (var date in dates)
+        {
+            if (date.HasValue)
+            {
+                var local = date.Value.ToLocalTime();
+                if (!hasDate)
+                {
+                    startDate = local;
+                    endDate = local;
+                    hasDate = true;
+                    continue;
+                }
+
+                if (local < startDate)
+                {
+                    startDate = local;
+                }
+
+                if (local > endDate)
+                {
+                    endDate = local;
+                }
+            }
+        }
+
+        return hasDate;
     }
+
+    private static string GetFlagUrl(Race race)
+    {
+        if (string.IsNullOrWhiteSpace(race.CountryCode))
+        {
+            return string.Empty;
+        }
+
+        var fileName = Uri.EscapeDataString(race.CountryCode.Trim().ToUpperInvariant() + ".png");
+        return $"/assets/races/Country%20Flags/{fileName}";
+    }
+
+    private static string GetCircuitSimpleUrl(Race race)
+    {
+        if (string.IsNullOrWhiteSpace(race.CircuitName))
+        {
+            return string.Empty;
+        }
+
+        var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + "_simple.png");
+        return $"/assets/races/Circuits%20Simple/{fileName}";
+    }
+
+    private static string GetCircuitUrl(Race race)
+    {
+        if (string.IsNullOrWhiteSpace(race.CircuitName))
+        {
+            return string.Empty;
+        }
+
+        var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + ".png");
+        return $"/assets/races/Circuits/{fileName}";
+    }
+
+    private static IReadOnlyList<ScheduleItem> GetScheduleItems(Race race)
+    {
+        var items = new List<ScheduleItem>();
+
+        AddSchedule(items, "Practice 1", race.Fp1Time);
+        AddSchedule(items, "Practice 2", race.Fp2Time);
+        AddSchedule(items, "Practice 3", race.Fp3Time);
+        AddSchedule(items, "Qualifying", race.QualifyingTime);
+        AddSchedule(items, "Sprint Qualifying", race.SprintQualifyingTime);
+        AddSchedule(items, "Sprint", race.SprintTime);
+        AddSchedule(items, "Race", race.RaceTime);
+
+        return items.OrderBy(item => item.Time).ToList();
+    }
+
+    private static void AddSchedule(ICollection<ScheduleItem> items, string label, DateTimeOffset? time)
+    {
+        if (time.HasValue)
+        {
+            items.Add(new ScheduleItem(label, time.Value));
+        }
+    }
+
+    private static string FormatKilometers(double? value)
+    {
+        return value.HasValue ? $"{value.Value:0.###} km" : "Por confirmar";
+    }
+
+    private static string FormatLapRecord(CircuitData? data)
+    {
+        if (data is null || string.IsNullOrWhiteSpace(data.LapRecordTime))
+        {
+            return "Por confirmar";
+        }
+
+        if (string.IsNullOrWhiteSpace(data.LapRecordDriver))
+        {
+            return data.LapRecordTime;
+        }
+
+        return $"{data.LapRecordTime} - {data.LapRecordDriver}";
+    }
+
+    private static int? GetNextRaceId(IEnumerable<Race> races)
+    {
+        var now = DateTimeOffset.UtcNow;
+        Race? nextRace = null;
+        DateTimeOffset? nextStart = null;
+
+        foreach (var race in races)
+        {
+            if (!TryGetEventWindow(race, out var startDate, out _))
+            {
+                continue;
+            }
+
+            var startUtc = startDate.ToUniversalTime();
+            if (startUtc < now)
+            {
+                continue;
+            }
+
+            if (!nextStart.HasValue || startUtc < nextStart.Value)
+            {
+                nextStart = startUtc;
+                nextRace = race;
+            }
+        }
+
+        return nextRace?.Id;
+    }
+
+    private static string GetMonthCode(int month)
+    {
+        return month switch
+        {
+            1 => "ENE",
+            2 => "FEB",
+            3 => "MAR",
+            4 => "ABR",
+            5 => "MAY",
+            6 => "JUN",
+            7 => "JUL",
+            8 => "AGO",
+            9 => "SEP",
+            10 => "OCT",
+            11 => "NOV",
+            12 => "DIC",
+            _ => "N/A"
+        };
+    }
+
+    private static readonly Dictionary<string, string> CircuitTimeZones = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Albert Park Grand Prix Circuit"] = "AUS Eastern Standard Time",
+        ["Autodromo Internazionale Enzo e Dino Ferrari"] = "W. Europe Standard Time",
+        ["Autodromo Nazionale Monza"] = "W. Europe Standard Time",
+        ["Autódromo Hermanos Rodríguez"] = "Central Standard Time (Mexico)",
+        ["Autódromo José Carlos Pace"] = "E. South America Standard Time",
+        ["Bahrain International Circuit"] = "Arabian Standard Time",
+        ["Baku City Circuit"] = "Azerbaijan Standard Time",
+        ["Circuit de Barcelona-Catalunya"] = "W. Europe Standard Time",
+        ["Circuit de Monaco"] = "W. Europe Standard Time",
+        ["Circuit de Spa-Francorchamps"] = "W. Europe Standard Time",
+        ["Circuit Gilles-Villeneuve"] = "Eastern Standard Time",
+        ["Circuit of The Americas"] = "Central Standard Time",
+        ["Circuit Zandvoort"] = "W. Europe Standard Time",
+        ["Hungaroring"] = "Central Europe Standard Time",
+        ["Jeddah Corniche Circuit"] = "Arab Standard Time",
+        ["Las Vegas Strip Circuit"] = "Pacific Standard Time",
+        ["Lusail International Circuit"] = "Arab Standard Time",
+        ["Marina Bay Street Circuit"] = "Singapore Standard Time",
+        ["Miami International Autodrome"] = "Eastern Standard Time",
+        ["Red Bull Ring"] = "W. Europe Standard Time",
+        ["Shanghai International Circuit"] = "China Standard Time",
+        ["Silverstone Circuit"] = "GMT Standard Time",
+        ["Suzuka Circuit"] = "Tokyo Standard Time",
+        ["Yas Marina Circuit"] = "Arabian Standard Time"
+    };
+
+    private static readonly Dictionary<string, string> CountryTimeZones = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["AE"] = "Arabian Standard Time",
+        ["AT"] = "W. Europe Standard Time",
+        ["AU"] = "AUS Eastern Standard Time",
+        ["AZ"] = "Azerbaijan Standard Time",
+        ["BE"] = "W. Europe Standard Time",
+        ["BH"] = "Arabian Standard Time",
+        ["BR"] = "E. South America Standard Time",
+        ["CA"] = "Eastern Standard Time",
+        ["CN"] = "China Standard Time",
+        ["ES"] = "W. Europe Standard Time",
+        ["GB"] = "GMT Standard Time",
+        ["HU"] = "Central Europe Standard Time",
+        ["IT"] = "W. Europe Standard Time",
+        ["JP"] = "Tokyo Standard Time",
+        ["MC"] = "W. Europe Standard Time",
+        ["MX"] = "Central Standard Time (Mexico)",
+        ["NL"] = "W. Europe Standard Time",
+        ["QA"] = "Arab Standard Time",
+        ["SA"] = "Arab Standard Time",
+        ["SG"] = "Singapore Standard Time",
+        ["US"] = "Eastern Standard Time"
+    };
+
+    private async Task SelectRaceAsync(Race race, int index)
+    {
+        if (selectedRaceId == race.Id)
+        {
+            isClosing = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(200);
+            selectedRaceId = null;
+            selectedRace = null;
+            detailsInsertAfterIndex = -1;
+            detailsKey = null;
+            isClosing = false;
+            return;
+        }
+
+        isClosing = false;
+        selectedRaceId = race.Id;
+        selectedRace = race;
+        detailsKey = $"details-{race.Id}";
+
+        try
+        {
+            var rowEndIndex = await JSRuntime.InvokeAsync<int>("pickdriverRaces.getRowEndIndex", raceGridRef, index);
+            detailsInsertAfterIndex = Math.Min(Math.Max(rowEndIndex, index), races.Count - 1);
+            shouldScrollToDetails = true;
+        }
+        catch
+        {
+            detailsInsertAfterIndex = Math.Min(index, races.Count - 1);
+            shouldScrollToDetails = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (shouldScrollToDetails)
+        {
+            shouldScrollToDetails = false;
+            await JSRuntime.InvokeVoidAsync("pickdriverRaces.scrollToElement", detailsRef, 24);
+        }
+    }
+
+    private void SetScheduleMode(bool trackTime)
+    {
+        useTrackTime = trackTime;
+    }
+
+    private string GetScheduleModeLabel()
+    {
+        if (!useTrackTime)
+        {
+            return "Hora local";
+        }
+
+        if (selectedRace is null)
+        {
+            return "Hora circuito (UTC)";
+        }
+
+        var timeZone = GetTrackTimeZone(selectedRace);
+        return $"Hora circuito ({timeZone.StandardName})";
+    }
+
+    private DateTimeOffset GetScheduleDisplayTime(ScheduleItem item, Race race)
+    {
+        if (!useTrackTime)
+        {
+            return item.Time.ToLocalTime();
+        }
+
+        var timeZone = GetTrackTimeZone(race);
+        return TimeZoneInfo.ConvertTime(item.Time, timeZone);
+    }
+
+    private static TimeZoneInfo GetTrackTimeZone(Race race)
+    {
+        if (!string.IsNullOrWhiteSpace(race.CircuitName) &&
+            CircuitTimeZones.TryGetValue(race.CircuitName.Trim(), out var circuitZoneId))
+        {
+            return ResolveTimeZone(circuitZoneId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(race.CountryCode) &&
+            CountryTimeZones.TryGetValue(race.CountryCode.Trim().ToUpperInvariant(), out var countryZoneId))
+        {
+            return ResolveTimeZone(countryZoneId);
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+
+    private readonly record struct ScheduleItem(string Label, DateTimeOffset Time);
 }
