@@ -1,0 +1,119 @@
+.league-setup-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.league-setup-subtitle {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.league-setup-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.league-setup-meta__item {
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    border: 1px solid var(--pd-border);
+    background: var(--pd-surface-alt);
+}
+
+.league-setup-meta__label {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.65rem;
+    color: var(--pd-muted);
+}
+
+.league-setup-meta__value {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.league-setup-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.league-setup-card {
+    position: relative;
+    padding: 1.6rem;
+    border-radius: 22px;
+    border: 1px solid var(--pd-border);
+    background: var(--pd-surface);
+    box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45);
+}
+
+.league-setup-card h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.league-setup-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.league-setup-list__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+}
+
+.league-setup-list__meta {
+    font-size: 0.8rem;
+    color: var(--pd-muted);
+}
+
+.league-setup-actions {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.league-setup-actions .btn {
+    width: 100%;
+}
+
+.league-setup-note {
+    margin: 0;
+    color: var(--pd-muted);
+    font-size: 0.95rem;
+}
+
+.league-setup-hints {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+    .league-setup-card {
+        padding: 1.2rem;
+    }
+}

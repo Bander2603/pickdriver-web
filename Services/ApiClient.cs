@@ -27,6 +27,12 @@ public sealed class ApiClient
     public Task<ApiResult<object?>> PostAsync<TRequest>(string path, TRequest request, bool auth = false)
         => SendAsync<object?>(HttpMethod.Post, path, request, auth);
 
+    public Task<ApiResult<TResponse>> DeleteAsync<TResponse>(string path, bool auth = false)
+        => SendAsync<TResponse>(HttpMethod.Delete, path, null, auth);
+
+    public Task<ApiResult<object?>> DeleteAsync(string path, bool auth = false)
+        => SendAsync<object?>(HttpMethod.Delete, path, null, auth);
+
     private async Task<ApiResult<TResponse>> SendAsync<TResponse>(HttpMethod method, string path, object? body, bool auth)
     {
         using var message = new HttpRequestMessage(method, path);

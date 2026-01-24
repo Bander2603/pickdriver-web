@@ -1,0 +1,341 @@
+@page "/leagues/{leagueId:int}"
+@inject ApiClient ApiClient
+@inject AuthSessionStore AuthSessionStore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(league?.Name ?? "Liga")</PageTitle>
+
+<div class="league-setup-header">
+    <div>
+        <h1>@(league?.Name ?? "Liga")</h1>
+        <p class="league-setup-subtitle text-muted">Configura la liga pendiente.</p>
+    </div>
+    <div class="league-setup-header__actions">
+        <a class="btn btn-outline-primary" href="/leagues">Volver</a>
+    </div>
+</div>
+
+@if (!isAuthorized)
+{
+    <p>Redirigiendo al login...</p>
+}
+else if (isLoading)
+{
+    <p><em>Cargando liga...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+else if (league is null)
+{
+    <div class="alert alert-warning" role="alert">No se encontro la liga solicitada.</div>
+}
+else if (!IsPending(league.Status))
+{
+    <div class="alert alert-info" role="alert">Esta liga ya no esta en estado pendiente.</div>
+}
+else
+{
+    <div class="league-setup-meta">
+        <div class="league-setup-meta__item">
+            <span class="league-setup-meta__label">Status</span>
+            <span class="league-setup-meta__value">@league.Status</span>
+        </div>
+        <div class="league-setup-meta__item">
+            <span class="league-setup-meta__label">Jugadores</span>
+            <span class="league-setup-meta__value">@members.Count/@league.MaxPlayers</span>
+        </div>
+        <div class="league-setup-meta__item">
+            <span class="league-setup-meta__label">Equipos</span>
+            <span class="league-setup-meta__value">@(league.TeamsEnabled ? "Activados" : "Desactivados")</span>
+        </div>
+    </div>
+
+    <div class="league-setup-grid">
+        <section class="league-setup-card">
+            <h2>Jugadores en la liga</h2>
+
+            @if (!string.IsNullOrWhiteSpace(membersErrorMessage))
+            {
+                <div class="alert alert-warning" role="alert">@membersErrorMessage</div>
+            }
+            else if (members.Count == 0)
+            {
+                <p class="text-muted">Aun no hay jugadores registrados.</p>
+            }
+            else
+            {
+                <ul class="league-setup-list">
+                    @foreach (var member in members)
+                    {
+                        <li class="league-setup-list__item">
+                            <span>@member.Username</span>
+                            <span class="league-setup-list__meta">@GetMemberMeta(member)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="league-setup-card">
+            <h2>Acciones</h2>
+
+            @if (!IsOwner)
+            {
+                <p class="league-setup-note">Tu liga se esta organizando</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrWhiteSpace(actionMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@actionMessage</div>
+                }
+
+                <div class="league-setup-actions">
+                    <button class="btn btn-outline-primary" type="button" disabled="@(!CanCreateTeams)">
+                        Crear Equipos
+                    </button>
+                    <button class="btn btn-success" type="button" @onclick="HandleStartLeague" disabled="@(!CanStart)">
+                        ¡Comenzar!
+                    </button>
+                    <button class="btn btn-outline-danger" type="button" @onclick="ConfirmDeleteLeague" disabled="@isSubmitting">
+                        Eliminar Liga
+                    </button>
+                </div>
+
+                <div class="league-setup-hints text-muted">
+                    @if (!LeagueFull)
+                    {
+                        <span>Necesitas que todos los jugadores se unan para continuar.</span>
+                    }
+                    else if (league.TeamsEnabled && !TeamsReady)
+                    {
+                        <span>Debes crear los equipos antes de comenzar.</span>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int LeagueId { get; set; }
+
+    private bool isLoading = true;
+    private bool isAuthorized;
+    private bool isSubmitting;
+    private int userId;
+    private LeaguePublic? league;
+    private string? errorMessage;
+    private string? membersErrorMessage;
+    private string? actionMessage;
+    private readonly List<UserPublic> members = new();
+    private readonly List<LeagueTeam> teams = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthorized = authState.User.Identity?.IsAuthenticated == true;
+        if (!isAuthorized)
+        {
+            RedirectToLogin();
+            isLoading = false;
+            return;
+        }
+
+        var session = await AuthSessionStore.GetAsync();
+        userId = session?.User.Id ?? 0;
+
+        var leaguesResult = await ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
+        if (leaguesResult.Success && leaguesResult.Data is not null)
+        {
+            league = leaguesResult.Data.FirstOrDefault(item => item.Id == LeagueId);
+        }
+        else
+        {
+            errorMessage = leaguesResult.ErrorMessage ?? "No se pudo cargar la liga.";
+            isLoading = false;
+            return;
+        }
+
+        if (league is not null)
+        {
+            var membersTask = ApiClient.GetAsync<List<UserPublic>>($"leagues/{LeagueId}/members", auth: true);
+            Task<ApiResult<List<LeagueTeam>>>? teamsTask = null;
+
+            if (league.TeamsEnabled)
+            {
+                teamsTask = ApiClient.GetAsync<List<LeagueTeam>>($"leagues/{LeagueId}/teams", auth: true);
+            }
+
+            var tasks = new List<Task> { membersTask };
+            if (teamsTask is not null)
+            {
+                tasks.Add(teamsTask);
+            }
+
+            await Task.WhenAll(tasks);
+
+            var membersResult = await membersTask;
+            if (membersResult.Success && membersResult.Data is not null)
+            {
+                members.AddRange(membersResult.Data.OrderBy(member => member.Username, StringComparer.OrdinalIgnoreCase));
+            }
+            else
+            {
+                membersErrorMessage = membersResult.ErrorMessage ?? "No se pudieron cargar los jugadores.";
+            }
+
+            if (teamsTask is not null)
+            {
+                var teamsResult = await teamsTask;
+                if (teamsResult.Success && teamsResult.Data is not null)
+                {
+                    teams.AddRange(teamsResult.Data);
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private bool IsOwner => league?.OwnerId == userId;
+
+    private bool LeagueFull => league is not null && members.Count >= league.MaxPlayers;
+
+    private bool CanCreateTeams => IsOwner && league?.TeamsEnabled == true && LeagueFull;
+
+    private bool TeamsReady
+    {
+        get
+        {
+            if (league?.TeamsEnabled != true)
+            {
+                return true;
+            }
+
+            if (teams.Count == 0)
+            {
+                return false;
+            }
+
+            var assigned = teams
+                .SelectMany(team => team.Members)
+                .Select(member => member.User.Id)
+                .Distinct()
+                .Count();
+
+            return league is not null && assigned >= league.MaxPlayers;
+        }
+    }
+
+    private bool CanStart => IsOwner && LeagueFull && TeamsReady;
+
+    private string GetMemberMeta(UserPublic member)
+    {
+        var roleLabel = GetMemberRole(member);
+        if (league?.TeamsEnabled != true)
+        {
+            return roleLabel;
+        }
+
+        var teamName = GetMemberTeamName(member);
+        return $"{roleLabel} · {teamName}";
+    }
+
+    private string GetMemberRole(UserPublic member)
+    {
+        return league?.OwnerId == member.Id ? "Owner" : "Miembro";
+    }
+
+    private string GetMemberTeamName(UserPublic member)
+    {
+        if (teams.Count == 0)
+        {
+            return "sin equipo";
+        }
+
+        foreach (var team in teams)
+        {
+            if (team.Members.Any(teamMember => teamMember.User.Id == member.Id))
+            {
+                return string.IsNullOrWhiteSpace(team.Name) ? "sin equipo" : team.Name;
+            }
+        }
+
+        return "sin equipo";
+    }
+
+    private async Task ConfirmDeleteLeague()
+    {
+        if (league is null || isSubmitting)
+        {
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            $"Eliminar la liga \"{league.Name}\"? Esta accion no se puede deshacer.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        actionMessage = null;
+
+        var result = await ApiClient.DeleteAsync($"leagues/{league.Id}", auth: true);
+
+        isSubmitting = false;
+
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/leagues");
+            return;
+        }
+
+        actionMessage = result.ErrorMessage ?? "No se pudo eliminar la liga.";
+    }
+
+    private async Task HandleStartLeague()
+    {
+        if (league is null || !CanStart)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        actionMessage = null;
+
+        var result = await ApiClient.PostAsync($"leagues/{league.Id}/start-draft", new { }, auth: true);
+
+        isSubmitting = false;
+
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/leagues");
+            return;
+        }
+
+        actionMessage = result.ErrorMessage ?? "No se pudo iniciar la liga.";
+    }
+
+    private void RedirectToLogin()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+
+    private static bool IsPending(string? status)
+    {
+        return string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase);
+    }
+}

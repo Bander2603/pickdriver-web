@@ -1,7 +1,10 @@
-﻿@page "/leagues"
+@page "/leagues"
+@using System.ComponentModel.DataAnnotations
 @inject ApiClient ApiClient
+@inject AuthSessionStore AuthSessionStore
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Ligas</PageTitle>
 
@@ -10,6 +13,14 @@
         <h1>Ligas</h1>
         <p class="leagues-subtitle text-muted">Gestiona tus ligas y su estado actual.</p>
     </div>
+    @if (isAuthorized)
+    {
+        <div class="leagues-header__actions">
+            <button class="btn btn-primary leagues-create" type="button" @onclick="OpenCreateModal" disabled="@isLoading">
+                Crear liga
+            </button>
+        </div>
+    }
 </div>
 
 @if (!isAuthorized)
@@ -33,34 +44,163 @@ else
         }
         else
         {
-            <table class="leagues-table">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Status</th>
-                        <th class="leagues-value">Max jugadores</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var league in leagues)
-                    {
+            @if (!string.IsNullOrWhiteSpace(deleteErrorMessage))
+            {
+                <div class="alert alert-warning" role="alert">@deleteErrorMessage</div>
+            }
+
+            <div class="leagues-table-wrapper">
+                <table class="leagues-table">
+                    <thead>
                         <tr>
-                            <td>@league.Name</td>
-                            <td><span class="leagues-status">@league.Status</span></td>
-                            <td class="leagues-value">@league.MaxPlayers</td>
+                            <th>Nombre</th>
+                            <th class="leagues-role">Rol</th>
+                            <th>Status</th>
+                            <th class="leagues-table-options">Opciones</th>
+                            <th class="leagues-value">Jugadores</th>
+                            <th class="leagues-actions"></th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var league in leagues)
+                        {
+                            var options = GetLeagueOptions(league);
+                            var isPending = IsPending(league.Status);
+                            var rowClass = isPending
+                                ? "leagues-row leagues-row--pending leagues-row--clickable"
+                                : "leagues-row";
+                            <tr class="@rowClass" @onclick="() => HandleLeagueRowClick(league)">
+                                <td>@league.Name</td>
+                                <td class="leagues-role">
+                                    <span class="leagues-role__pill">@GetRoleLabel(league)</span>
+                                </td>
+                                <td><span class="leagues-status @GetStatusClass(league.Status)">@league.Status</span></td>
+                                <td class="leagues-table-options">
+                                    @foreach (var option in options)
+                                    {
+                                        <span class="leagues-option-pill">@option</span>
+                                    }
+                                    @if (options.Count == 0)
+                                    {
+                                        <span class="leagues-option-pill leagues-option-pill--inactive">Sin opciones</span>
+                                    }
+                                </td>
+                                <td class="leagues-value">@GetMembersLabel(league)</td>
+                                <td class="leagues-actions">
+                                    @if (CanDeleteLeague(league))
+                                    {
+                                        <button class="leagues-delete" type="button" @onclick="() => ConfirmDeleteLeague(league)" @onclick:stopPropagation disabled="@IsDeleting(league.Id)">
+                                            <span class="leagues-delete__icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                                                    <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm-1 12h12a2 2 0 0 0 2-2V7H4v12a2 2 0 0 0 2 2z" />
+                                                </svg>
+                                            </span>
+                                            <span class="visually-hidden">Eliminar</span>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
     </div>
+
+    @if (showCreateModal)
+    {
+        <div class="leagues-modal" role="dialog" aria-modal="true" aria-labelledby="leagues-create-title">
+            <div class="leagues-modal__backdrop" @onclick="CloseCreateModal"></div>
+            <div class="leagues-modal__content">
+                <div class="leagues-modal__header">
+                    <h2 id="leagues-create-title">Nueva liga</h2>
+                    <button type="button" class="leagues-modal__close" @onclick="CloseCreateModal" aria-label="Cerrar">
+                        X
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(createErrorMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@createErrorMessage</div>
+                }
+
+                <EditForm Model="createModel" OnValidSubmit="HandleCreateLeague">
+                    <DataAnnotationsValidator />
+
+                    <div class="leagues-form-grid">
+                        <div>
+                            <label class="form-label" for="league-name">Nombre</label>
+                            <InputText id="league-name" class="form-control" @bind-Value="createModel.Name" />
+                            <ValidationMessage For="() => createModel.Name" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="league-players">Jugadores</label>
+                            <InputNumber id="league-players" class="form-control" @bind-Value="createModel.MaxPlayers" @bind-Value:after="HandleMaxPlayersChanged" @attributes="MaxPlayersAttributes" />
+                            <ValidationMessage For="() => createModel.MaxPlayers" />
+                            <small class="leagues-field__meta text-muted">Maximo permitido: @MaxPlayersLimitLabel</small>
+                        </div>
+                    </div>
+
+                    <div class="leagues-options">
+                        <label class="leagues-option @(TeamsAvailable ? string.Empty : "leagues-option--disabled")">
+                            <InputCheckbox class="form-check-input" @bind-Value="createModel.TeamsEnabled" disabled="@(!TeamsAvailable || isSubmitting)" />
+                            <div>
+                                <span class="leagues-option__title">Teams</span>
+                                <small>Jugar tambien con equipos.</small>
+                                @if (!TeamsAvailable)
+                                {
+                                    <small class="leagues-option__warning">Necesitas al menos 4 jugadores.</small>
+                                }
+                            </div>
+                        </label>
+                        <label class="leagues-option">
+                            <InputCheckbox class="form-check-input" @bind-Value="createModel.BansEnabled" disabled="@isSubmitting" />
+                            <div>
+                                <span class="leagues-option__title">Bans</span>
+                                <small>Se permite banear picks de jugadores.</small>
+                            </div>
+                        </label>
+                        <label class="leagues-option @(MirrorAvailable ? string.Empty : "leagues-option--disabled")">
+                            <InputCheckbox class="form-check-input" @bind-Value="createModel.MirrorEnabled" disabled="@(!MirrorAvailable || isSubmitting)" />
+                            <div>
+                                <span class="leagues-option__title">Mirror</span>
+                                <small>Duplica el orden de picks en espejo.</small>
+                                @if (!MirrorAvailable)
+                                {
+                                    <small class="leagues-option__warning">@MirrorUnavailableReason</small>
+                                }
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="leagues-modal__actions">
+                        <button type="button" class="btn btn-outline-primary" @onclick="CloseCreateModal" disabled="@isSubmitting">
+                            Cancelar
+                        </button>
+                        <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
+                            @(isSubmitting ? "Creando..." : "Crear liga")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
 }
 
 @code {
     private bool isLoading = true;
     private bool isAuthorized;
     private string? errorMessage;
+    private string? createErrorMessage;
+    private string? deleteErrorMessage;
+    private bool showCreateModal;
+    private bool isSubmitting;
+    private int userId;
+    private int maxPlayersLimit;
     private readonly List<LeaguePublic> leagues = new();
+    private readonly HashSet<int> deletingLeagueIds = new();
+    private readonly Dictionary<int, int> leagueMemberCounts = new();
+    private CreateLeagueModel createModel = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,18 +213,260 @@ else
             return;
         }
 
-        var result = await ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
-        if (result.Success && result.Data is not null)
+        var session = await AuthSessionStore.GetAsync();
+        userId = session?.User.Id ?? 0;
+
+        var leaguesTask = ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
+        var driversTask = ApiClient.GetAsync<List<Driver>>("drivers");
+        var teamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+
+        await Task.WhenAll(leaguesTask, driversTask, teamsTask);
+
+        var leaguesResult = await leaguesTask;
+        if (leaguesResult.Success && leaguesResult.Data is not null)
         {
-            leagues.AddRange(result.Data);
+            leagues.AddRange(leaguesResult.Data);
+            _ = LoadLeagueMembersAsync(leagues);
         }
         else
         {
-            errorMessage = result.ErrorMessage ?? "No se pudieron cargar las ligas.";
+            errorMessage = leaguesResult.ErrorMessage ?? "No se pudieron cargar las ligas.";
         }
+
+        var driversResult = await driversTask;
+        var teamsResult = await teamsTask;
+        var activeDrivers = 0;
+        var seasonTeams = 0;
+
+        if (driversResult.Success && driversResult.Data is not null)
+        {
+            activeDrivers = driversResult.Data.Count(driver => driver.Active);
+        }
+
+        if (teamsResult.Success && teamsResult.Data is not null)
+        {
+            seasonTeams = teamsResult.Data.Count;
+        }
+
+        maxPlayersLimit = ResolveMaxPlayersLimit(activeDrivers, seasonTeams);
+        ClampCreateModelMaxPlayers();
 
         isLoading = false;
     }
+
+    private void OpenCreateModal()
+    {
+        createErrorMessage = null;
+        ResetCreateModel();
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        if (isSubmitting)
+        {
+            return;
+        }
+
+        showCreateModal = false;
+        createErrorMessage = null;
+        ResetCreateModel();
+    }
+
+    private void ResetCreateModel()
+    {
+        createModel = new CreateLeagueModel
+        {
+            MaxPlayers = GetDefaultMaxPlayers()
+        };
+
+        HandleMaxPlayersChanged();
+    }
+
+    private void HandleMaxPlayersChanged()
+    {
+        ClampCreateModelMaxPlayers();
+
+        if (!TeamsAvailable)
+        {
+            createModel.TeamsEnabled = false;
+        }
+
+        if (!MirrorAvailable)
+        {
+            createModel.MirrorEnabled = false;
+        }
+    }
+
+    private async Task HandleCreateLeague()
+    {
+        createErrorMessage = null;
+        isSubmitting = true;
+
+        if (maxPlayersLimit > 0 && createModel.MaxPlayers > maxPlayersLimit)
+        {
+            createErrorMessage = $"El maximo permitido es {maxPlayersLimit} jugadores.";
+            isSubmitting = false;
+            return;
+        }
+
+        if (!MirrorAvailable)
+        {
+            createModel.MirrorEnabled = false;
+        }
+
+        var request = new CreateLeagueRequest
+        {
+            Name = createModel.Name.Trim(),
+            MaxPlayers = createModel.MaxPlayers,
+            TeamsEnabled = createModel.TeamsEnabled,
+            BansEnabled = createModel.BansEnabled,
+            MirrorEnabled = createModel.MirrorEnabled
+        };
+
+        var result = await ApiClient.PostAsync<CreateLeagueRequest, LeaguePublic>("leagues/create", request, auth: true);
+
+        isSubmitting = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            leagues.Insert(0, result.Data);
+            leagueMemberCounts[result.Data.Id] = 1;
+            showCreateModal = false;
+            ResetCreateModel();
+            return;
+        }
+
+        createErrorMessage = result.ErrorMessage ?? "No se pudo crear la liga.";
+    }
+
+    private async Task ConfirmDeleteLeague(LeaguePublic league)
+    {
+        deleteErrorMessage = null;
+
+        if (IsDeleting(league.Id))
+        {
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            $"Eliminar la liga \"{league.Name}\"? Esta accion no se puede deshacer.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        deletingLeagueIds.Add(league.Id);
+
+        var result = await ApiClient.DeleteAsync($"leagues/{league.Id}", auth: true);
+
+        deletingLeagueIds.Remove(league.Id);
+
+        if (result.Success)
+        {
+            leagues.RemoveAll(item => item.Id == league.Id);
+            leagueMemberCounts.Remove(league.Id);
+            return;
+        }
+
+        deleteErrorMessage = result.ErrorMessage ?? "No se pudo eliminar la liga.";
+    }
+
+    private bool CanDeleteLeague(LeaguePublic league)
+    {
+        return IsPending(league.Status) && league.OwnerId == userId;
+    }
+
+    private bool IsDeleting(int leagueId) => deletingLeagueIds.Contains(leagueId);
+
+    private static bool IsPending(string? status)
+    {
+        return string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetRoleLabel(LeaguePublic league)
+    {
+        return league.OwnerId == userId ? "Owner" : "Miembro";
+    }
+
+    private static string GetLeagueEditUrl(LeaguePublic league)
+    {
+        return $"/leagues/{league.Id}";
+    }
+
+    private void HandleLeagueRowClick(LeaguePublic league)
+    {
+        if (!IsPending(league.Status))
+        {
+            return;
+        }
+
+        NavigationManager.NavigateTo(GetLeagueEditUrl(league));
+    }
+
+    private static string GetStatusClass(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return string.Empty;
+        }
+
+        return status.ToLowerInvariant() switch
+        {
+            "pending" => "leagues-status--pending",
+            "active" => "leagues-status--active",
+            _ => string.Empty
+        };
+    }
+
+
+    private string GetMembersLabel(LeaguePublic league)
+    {
+        return leagueMemberCounts.TryGetValue(league.Id, out var members)
+            ? $"{members}/{league.MaxPlayers}"
+            : $"-/{league.MaxPlayers}";
+    }
+
+    private static IReadOnlyList<string> GetLeagueOptions(LeaguePublic league)
+    {
+        var options = new List<string>(3);
+        if (league.TeamsEnabled)
+        {
+            options.Add("Teams");
+        }
+
+        if (league.BansEnabled)
+        {
+            options.Add("Bans");
+        }
+
+        if (league.MirrorPicksEnabled)
+        {
+            options.Add("Mirror");
+        }
+
+        return options;
+    }
+
+    private bool TeamsAvailable => createModel.MaxPlayers >= 4;
+
+    private bool MirrorAvailable => maxPlayersLimit > 0 && createModel.MaxPlayers <= MirrorPlayersLimit;
+
+    private int MirrorPlayersLimit => maxPlayersLimit > 0 ? maxPlayersLimit / 2 : 0;
+
+    private string MirrorUnavailableReason
+        => maxPlayersLimit <= 0
+            ? "No disponible sin datos de temporada."
+            : $"Disponible hasta {MirrorPlayersLimit} jugadores.";
+
+    private string MaxPlayersLimitLabel => maxPlayersLimit > 0 ? maxPlayersLimit.ToString() : "sin datos";
+
+    private IReadOnlyDictionary<string, object> MaxPlayersAttributes
+        => maxPlayersLimit > 0
+            ? new Dictionary<string, object> { ["min"] = 2, ["max"] = maxPlayersLimit }
+            : new Dictionary<string, object> { ["min"] = 2 };
 
     private void RedirectToLogin()
     {
@@ -92,5 +474,80 @@ else
         var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
         var encoded = Uri.EscapeDataString(target);
         NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+    private int GetDefaultMaxPlayers()
+    {
+        if (maxPlayersLimit > 0)
+        {
+            return Math.Min(8, maxPlayersLimit);
+        }
+
+        return 8;
+    }
+
+    private void ClampCreateModelMaxPlayers()
+    {
+        if (createModel.MaxPlayers < 2)
+        {
+            createModel.MaxPlayers = 2;
+        }
+
+        if (maxPlayersLimit > 0 && createModel.MaxPlayers > maxPlayersLimit)
+        {
+            createModel.MaxPlayers = maxPlayersLimit;
+        }
+    }
+
+    private static int ResolveMaxPlayersLimit(int activeDrivers, int seasonTeams)
+    {
+        if (activeDrivers > 0)
+        {
+            return activeDrivers;
+        }
+
+        if (seasonTeams > 0)
+        {
+            return seasonTeams * 2;
+        }
+
+        return 0;
+    }
+
+    private async Task LoadLeagueMembersAsync(IEnumerable<LeaguePublic> leagueList)
+    {
+        var tasks = leagueList.Select(LoadLeagueMemberCountAsync).ToList();
+        await Task.WhenAll(tasks);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadLeagueMemberCountAsync(LeaguePublic league)
+    {
+        try
+        {
+            var result = await ApiClient.GetAsync<List<UserPublic>>($"leagues/{league.Id}/members", auth: true);
+            if (result.Success && result.Data is not null)
+            {
+                leagueMemberCounts[league.Id] = result.Data.Count;
+            }
+        }
+        catch
+        {
+            // Ignore failures to keep the list responsive.
+        }
+    }
+
+    private sealed class CreateLeagueModel
+    {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [StringLength(36, ErrorMessage = "El nombre es demasiado largo.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Range(2, int.MaxValue, ErrorMessage = "Los jugadores deben ser al menos 2.")]
+        public int MaxPlayers { get; set; } = 8;
+
+        public bool TeamsEnabled { get; set; }
+        public bool BansEnabled { get; set; }
+        public bool MirrorEnabled { get; set; }
     }
 }
