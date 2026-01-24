@@ -3,101 +3,122 @@
 
 <PageTitle>Standings</PageTitle>
 
-<h1>Standings</h1>
-
-@if (isLoading)
-{
-    <p><em>Cargando standings...</em></p>
-}
-else if (!string.IsNullOrWhiteSpace(errorMessage))
-{
-    <div class="alert alert-warning" role="alert">@errorMessage</div>
-}
-else
-{
-    <div class="row g-3">
-        <div class="col-12 col-lg-7">
-            <h2 class="h5">Pilotos</h2>
-            @if (drivers.Count == 0)
-            {
-                <p class="text-muted">Sin datos.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Piloto</th>
-                                <th class="text-end">Puntos</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (var i = 0; i < drivers.Count; i++)
-                            {
-                                var driver = drivers[i];
-                                <tr>
-                                    <td>@(i + 1)</td>
-                                    <td>@FormatDriverName(driver)</td>
-                                    <td class="text-end">@driver.Points</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-        <div class="col-12 col-lg-5">
-            <h2 class="h5">Equipos</h2>
-            @if (teams.Count == 0)
-            {
-                <p class="text-muted">Sin datos.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Equipo</th>
-                                <th class="text-end">Puntos</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (var i = 0; i < teams.Count; i++)
-                            {
-                                var team = teams[i];
-                                <tr>
-                                    <td>@(i + 1)</td>
-                                    <td>@team.Name</td>
-                                    <td class="text-end">@team.Points</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
+<div class="standings-header">
+    <div>
+        <h1>@GetStandingsTitle()</h1>
+        <p class="standings-subtitle text-muted">Clasificacion actual de la temporada.</p>
     </div>
-}
+    <div class="standings-toggle" role="group" aria-label="Tipo de standings">
+        <button type="button" class="standings-toggle__button @(showTeams ? string.Empty : "active")" @onclick="() => SetStandingsMode(false)">Pilotos</button>
+        <button type="button" class="standings-toggle__button @(showTeams ? "active" : string.Empty)" @onclick="() => SetStandingsMode(true)">Equipos</button>
+    </div>
+</div>
+
+<div class="standings-panel">
+    @if (isLoading)
+    {
+        <p class="standings-empty"><em>Cargando standings...</em></p>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@errorMessage</div>
+    }
+    else if (showTeams)
+    {
+        if (teams.Count == 0)
+        {
+            <p class="standings-empty">Sin datos.</p>
+        }
+        else
+        {
+            <table class="standings-table standings-table--teams">
+                <thead>
+                    <tr>
+                        <th class="standings-pos">Pos.</th>
+                        <th>Equipo</th>
+                        <th class="standings-points">Pts.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < teams.Count; i++)
+                    {
+                        var team = teams[i];
+                        <tr>
+                            <td class="standings-pos">@(i + 1)</td>
+                            <td>
+                                <div class="standings-team">
+                                    <span class="standings-team__dot" style="background-color: @GetTeamColor(team.Color)"></span>
+                                    <span>@team.Name</span>
+                                </div>
+                            </td>
+                            <td class="standings-points">@team.Points</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+    else
+    {
+        if (drivers.Count == 0)
+        {
+            <p class="standings-empty">Sin datos.</p>
+        }
+        else
+        {
+            <table class="standings-table standings-table--drivers">
+                <thead>
+                    <tr>
+                        <th class="standings-pos">Pos.</th>
+                        <th>Piloto</th>
+                        <th class="standings-country">Pais</th>
+                        <th>Equipo</th>
+                        <th class="standings-points">Pts.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < drivers.Count; i++)
+                    {
+                        var driver = drivers[i];
+                        <tr>
+                            <td class="standings-pos">@(i + 1)</td>
+                            <td class="standings-driver">@FormatDriverName(driver)</td>
+                            <td class="standings-country">@GetDriverCountry(driver)</td>
+                            <td>
+                                <div class="standings-team">
+                                    <span class="standings-team__dot" style="background-color: @GetTeamColor(driver.TeamColor)"></span>
+                                    <span>@driver.TeamName</span>
+                                </div>
+                            </td>
+                            <td class="standings-points">@driver.Points</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+</div>
 
 @code {
     private bool isLoading = true;
     private string? errorMessage;
     private readonly List<DriverStanding> drivers = new();
     private readonly List<TeamStanding> teams = new();
+    private readonly Dictionary<int, string> driverCountries = new();
+    private readonly Dictionary<string, string> driverCountriesByCode = new(StringComparer.OrdinalIgnoreCase);
+    private bool showTeams;
 
     protected override async Task OnInitializedAsync()
     {
         var driversTask = ApiClient.GetAsync<List<DriverStanding>>("standings/f1/drivers");
         var teamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+        var driverInfoTask = ApiClient.GetAsync<List<DriverProfile>>("drivers");
 
-        await Task.WhenAll(driversTask, teamsTask);
+        await Task.WhenAll(driversTask, teamsTask, driverInfoTask);
 
         var driversResult = await driversTask;
         var teamsResult = await teamsTask;
+        var driverInfoResult = await driverInfoTask;
 
         if (driversResult.Success && driversResult.Data is not null)
         {
@@ -113,17 +134,112 @@ else
         {
             errorMessage = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los standings.";
         }
+        else if (driverInfoResult.Success && driverInfoResult.Data is not null)
+        {
+            foreach (var info in driverInfoResult.Data)
+            {
+                var country = NormalizeCountryCode(info.Country);
+                if (!string.IsNullOrWhiteSpace(country))
+                {
+                    driverCountries[info.Id] = country;
+                }
+
+                if (!string.IsNullOrWhiteSpace(info.DriverCode) && !string.IsNullOrWhiteSpace(country))
+                {
+                    driverCountriesByCode[info.DriverCode.Trim()] = country;
+                }
+            }
+        }
 
         isLoading = false;
     }
 
+    private void SetStandingsMode(bool teamsMode)
+    {
+        showTeams = teamsMode;
+    }
+
+    private string GetStandingsTitle()
+    {
+        return showTeams ? "Standings de equipos" : "Standings de pilotos";
+    }
+
     private static string FormatDriverName(DriverStanding driver)
     {
-        if (!string.IsNullOrWhiteSpace(driver.DriverCode))
+        return $"{driver.FirstName} {driver.LastName}";
+    }
+
+    private string GetDriverCountry(DriverStanding driver)
+    {
+        if (driverCountries.TryGetValue(driver.DriverId, out var country))
         {
-            return $"{driver.DriverCode} - {driver.FirstName} {driver.LastName}";
+            return country;
         }
 
-        return $"{driver.FirstName} {driver.LastName}";
+        if (!string.IsNullOrWhiteSpace(driver.DriverCode) &&
+            driverCountriesByCode.TryGetValue(driver.DriverCode.Trim(), out var countryByCode))
+        {
+            return countryByCode;
+        }
+
+        return "-";
+    }
+
+    private static string NormalizeCountryCode(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country))
+        {
+            return string.Empty;
+        }
+
+        return country.Trim().ToUpperInvariant();
+    }
+
+    private static string GetTeamColor(string? color)
+    {
+        if (!IsHexColor(color))
+        {
+            return "#6c757d";
+        }
+
+        var trimmed = color!.Trim();
+        if (!trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = "#" + trimmed;
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsHexColor(string? color)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return false;
+        }
+
+        var trimmed = color.Trim();
+        if (trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[1..];
+        }
+
+        if (trimmed.Length != 3 && trimmed.Length != 6)
+        {
+            return false;
+        }
+
+        foreach (var ch in trimmed)
+        {
+            var isHex = (ch >= '0' && ch <= '9') ||
+                        (ch >= 'a' && ch <= 'f') ||
+                        (ch >= 'A' && ch <= 'F');
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

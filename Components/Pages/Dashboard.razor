@@ -8,7 +8,12 @@
 
 <PageTitle>Dashboard</PageTitle>
 
-<h1>Dashboard</h1>
+<div class="dashboard-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="dashboard-subtitle text-muted">Resumen general de tu temporada.</p>
+    </div>
+</div>
 
 @if (!isAuthorized)
 {
@@ -20,158 +25,172 @@ else if (isLoading)
 }
 else
 {
-    <div class="row g-3">
-        <div class="col-12 col-lg-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h2 class="h5">Proxima carrera</h2>
-
-                    @if (!string.IsNullOrWhiteSpace(nextRaceError))
-                    {
-                        <div class="alert alert-warning" role="alert">@nextRaceError</div>
-                    }
-                    else if (nextRace is null)
-                    {
-                        <p class="text-muted">No hay carrera cargada.</p>
-                    }
-                    else
-                    {
-                        <p class="mb-1"><strong>@nextRace.Name</strong></p>
-                        <p class="mb-1">Circuito: @nextRace.CircuitName</p>
-                        <p class="mb-1">Round: @nextRace.Round</p>
-                        <p class="mb-0">Carrera: @FormatRaceDate(nextRace.RaceTime)</p>
-                    }
-                </div>
+    <div class="dashboard-grid">
+        <section class="dashboard-card">
+            <div class="dashboard-card__header">
+                <h2 class="dashboard-card__title">Proxima carrera</h2>
             </div>
-        </div>
 
-        <div class="col-12 col-lg-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h2 class="h5">Tus ligas</h2>
+            @if (!string.IsNullOrWhiteSpace(nextRaceError))
+            {
+                <div class="alert alert-warning" role="alert">@nextRaceError</div>
+            }
+            else if (nextRace is null)
+            {
+                <p class="dashboard-empty text-muted">No hay carrera cargada.</p>
+            }
+            else
+            {
+                <div class="dashboard-meta">
+                    <div class="dashboard-meta__row">
+                        <span class="dashboard-meta__label">Evento</span>
+                        <span class="dashboard-meta__value">@nextRace.Name</span>
+                    </div>
+                    <div class="dashboard-meta__row">
+                        <span class="dashboard-meta__label">Circuito</span>
+                        <span class="dashboard-meta__value">@nextRace.CircuitName</span>
+                    </div>
+                    <div class="dashboard-meta__row">
+                        <span class="dashboard-meta__label">Round</span>
+                        <span class="dashboard-meta__value">@nextRace.Round</span>
+                    </div>
+                    <div class="dashboard-meta__row">
+                        <span class="dashboard-meta__label">Carrera</span>
+                        <span class="dashboard-meta__value">@FormatRaceDate(nextRace.RaceTime)</span>
+                    </div>
+                </div>
+            }
+        </section>
 
-                    @if (!string.IsNullOrWhiteSpace(leaguesError))
-                    {
-                        <div class="alert alert-warning" role="alert">@leaguesError</div>
-                    }
-                    else if (leagueItems.Count == 0)
-                    {
-                        <p class="text-muted">Todavia no estas en ninguna liga.</p>
-                    }
-                    else
-                    {
-                        if (leaguePositionsPartial)
+        <section class="dashboard-card">
+            <div class="dashboard-card__header">
+                <h2 class="dashboard-card__title">Tus ligas</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(leaguesError))
+            {
+                <div class="alert alert-warning" role="alert">@leaguesError</div>
+            }
+            else if (leagueItems.Count == 0)
+            {
+                <p class="dashboard-empty text-muted">Todavia no estas en ninguna liga.</p>
+            }
+            else
+            {
+                if (leaguePositionsPartial)
+                {
+                    <p class="dashboard-note text-muted">No se pudo calcular la posicion en todas las ligas.</p>
+                }
+
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Liga</th>
+                            <th>Status</th>
+                            <th class="dashboard-points">Pos.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in leagueItems)
                         {
-                            <p class="text-muted">No se pudo calcular la posicion en todas las ligas.</p>
+                            <tr>
+                                <td>@item.League.Name</td>
+                                <td><span class="dashboard-status">@item.League.Status</span></td>
+                                <td class="dashboard-points">@item.PositionLabel</td>
+                            </tr>
                         }
+                    </tbody>
+                </table>
+            }
+        </section>
 
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
+        <section class="dashboard-card dashboard-card--full">
+            <div class="dashboard-card__header">
+                <h2 class="dashboard-card__title">Standings F1</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(standingsError))
+            {
+                <div class="alert alert-warning" role="alert">@standingsError</div>
+            }
+            else
+            {
+                <div class="dashboard-standings">
+                    <div class="dashboard-standings__column">
+                        <h3 class="dashboard-standings__title">Top 5 pilotos</h3>
+                        @if (topDrivers.Count == 0)
+                        {
+                            <p class="dashboard-empty text-muted">Sin datos.</p>
+                        }
+                        else
+                        {
+                            <table class="dashboard-table">
                                 <thead>
                                     <tr>
-                                        <th>Liga</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Posicion</th>
+                                        <th class="dashboard-pos">Pos.</th>
+                                        <th>Piloto</th>
+                                        <th>Equipo</th>
+                                        <th class="dashboard-points">Pts.</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var item in leagueItems)
+                                    @for (var i = 0; i < topDrivers.Count; i++)
                                     {
+                                        var driver = topDrivers[i];
                                         <tr>
-                                            <td>@item.League.Name</td>
-                                            <td>@item.League.Status</td>
-                                            <td class="text-end">@item.PositionLabel</td>
+                                            <td class="dashboard-pos">@(i + 1)</td>
+                                            <td>@FormatDriverName(driver)</td>
+                                            <td>
+                                                <div class="dashboard-team">
+                                                    <span class="dashboard-team__dot" style="background-color: @GetTeamColor(driver.TeamColor)"></span>
+                                                    <span>@driver.TeamName</span>
+                                                </div>
+                                            </td>
+                                            <td class="dashboard-points">@driver.Points</td>
                                         </tr>
                                     }
                                 </tbody>
                             </table>
-                        </div>
-                    }
+                        }
+                    </div>
+                    <div class="dashboard-standings__column">
+                        <h3 class="dashboard-standings__title">Top 3 equipos</h3>
+                        @if (topTeams.Count == 0)
+                        {
+                            <p class="dashboard-empty text-muted">Sin datos.</p>
+                        }
+                        else
+                        {
+                            <table class="dashboard-table">
+                                <thead>
+                                    <tr>
+                                        <th class="dashboard-pos">Pos.</th>
+                                        <th>Equipo</th>
+                                        <th class="dashboard-points">Pts.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (var i = 0; i < topTeams.Count; i++)
+                                    {
+                                        var team = topTeams[i];
+                                        <tr>
+                                            <td class="dashboard-pos">@(i + 1)</td>
+                                            <td>
+                                                <div class="dashboard-team">
+                                                    <span class="dashboard-team__dot" style="background-color: @GetTeamColor(team.Color)"></span>
+                                                    <span>@team.Name</span>
+                                                </div>
+                                            </td>
+                                            <td class="dashboard-points">@team.Points</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="h5">Standings F1</h2>
-
-                    @if (!string.IsNullOrWhiteSpace(standingsError))
-                    {
-                        <div class="alert alert-warning" role="alert">@standingsError</div>
-                    }
-                    else
-                    {
-                        <div class="row g-3">
-                            <div class="col-12 col-lg-7">
-                                <h3 class="h6">Top 5 pilotos</h3>
-                                @if (topDrivers.Count == 0)
-                                {
-                                    <p class="text-muted">Sin datos.</p>
-                                }
-                                else
-                                {
-                                    <div class="table-responsive">
-                                        <table class="table table-sm align-middle">
-                                            <thead>
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>Piloto</th>
-                                                    <th class="text-end">Puntos</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @for (var i = 0; i < topDrivers.Count; i++)
-                                                {
-                                                    var driver = topDrivers[i];
-                                                    <tr>
-                                                        <td>@(i + 1)</td>
-                                                        <td>@FormatDriverName(driver)</td>
-                                                        <td class="text-end">@driver.Points</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                }
-                            </div>
-                            <div class="col-12 col-lg-5">
-                                <h3 class="h6">Top 3 equipos</h3>
-                                @if (topTeams.Count == 0)
-                                {
-                                    <p class="text-muted">Sin datos.</p>
-                                }
-                                else
-                                {
-                                    <div class="table-responsive">
-                                        <table class="table table-sm align-middle">
-                                            <thead>
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>Equipo</th>
-                                                    <th class="text-end">Puntos</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @for (var i = 0; i < topTeams.Count; i++)
-                                                {
-                                                    var team = topTeams[i];
-                                                    <tr>
-                                                        <td>@(i + 1)</td>
-                                                        <td>@team.Name</td>
-                                                        <td class="text-end">@team.Points</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
+            }
+        </section>
     </div>
 }
 
@@ -344,12 +363,55 @@ else
 
     private static string FormatDriverName(DriverStanding driver)
     {
-        if (!string.IsNullOrWhiteSpace(driver.DriverCode))
+        return $"{driver.FirstName} {driver.LastName}";
+    }
+
+    private static string GetTeamColor(string? color)
+    {
+        if (!IsHexColor(color))
         {
-            return $"{driver.DriverCode} - {driver.FirstName} {driver.LastName}";
+            return "#6c757d";
         }
 
-        return $"{driver.FirstName} {driver.LastName}";
+        var trimmed = color!.Trim();
+        if (!trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = "#" + trimmed;
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsHexColor(string? color)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return false;
+        }
+
+        var trimmed = color.Trim();
+        if (trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[1..];
+        }
+
+        if (trimmed.Length != 3 && trimmed.Length != 6)
+        {
+            return false;
+        }
+
+        foreach (var ch in trimmed)
+        {
+            var isHex = (ch >= '0' && ch <= '9') ||
+                        (ch >= 'a' && ch <= 'f') ||
+                        (ch >= 'A' && ch <= 'F');
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private sealed record LeagueDashboardItem(LeaguePublic League, string PositionLabel);

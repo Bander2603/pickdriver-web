@@ -5,46 +5,54 @@
 
 <PageTitle>Ligas</PageTitle>
 
-<h1>Ligas</h1>
+<div class="leagues-header">
+    <div>
+        <h1>Ligas</h1>
+        <p class="leagues-subtitle text-muted">Gestiona tus ligas y su estado actual.</p>
+    </div>
+</div>
 
 @if (!isAuthorized)
 {
     <p>Redirigiendo al login...</p>
 }
-else if (isLoading)
-{
-    <p><em>Cargando ligas...</em></p>
-}
-else if (!string.IsNullOrWhiteSpace(errorMessage))
-{
-    <div class="alert alert-warning" role="alert">@errorMessage</div>
-}
-else if (leagues.Count == 0)
-{
-    <p class="text-muted">Todavia no estas en ninguna liga.</p>
-}
 else
 {
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Status</th>
-                    <th class="text-end">Max jugadores</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var league in leagues)
-                {
+    <div class="leagues-panel">
+        @if (isLoading)
+        {
+            <p class="leagues-empty"><em>Cargando ligas...</em></p>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-warning" role="alert">@errorMessage</div>
+        }
+        else if (leagues.Count == 0)
+        {
+            <p class="leagues-empty text-muted">Todavia no estas en ninguna liga.</p>
+        }
+        else
+        {
+            <table class="leagues-table">
+                <thead>
                     <tr>
-                        <td>@league.Name</td>
-                        <td>@league.Status</td>
-                        <td class="text-end">@league.MaxPlayers</td>
+                        <th>Nombre</th>
+                        <th>Status</th>
+                        <th class="leagues-value">Max jugadores</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var league in leagues)
+                    {
+                        <tr>
+                            <td>@league.Name</td>
+                            <td><span class="leagues-status">@league.Status</span></td>
+                            <td class="leagues-value">@league.MaxPlayers</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 }
 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PickDriverWeb")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+021dc9e58b825a4c3433e710ea07da07a94c746b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e73c01469be9a6bc5b2d0099530e5f7e3e1016e")]
 [assembly: System.Reflection.AssemblyProductAttribute("PickDriverWeb")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PickDriverWeb")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,0 +1,97 @@
+.leagues-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.leagues-subtitle {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.leagues-panel {
+    position: relative;
+    padding: 1.6rem;
+    border-radius: 22px;
+    border: 1px solid var(--pd-border);
+    background: var(--pd-surface);
+    box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.leagues-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 60%);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.leagues-panel > * {
+    position: relative;
+}
+
+.leagues-empty {
+    margin: 0;
+}
+
+.leagues-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.leagues-table thead th {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.7rem;
+    color: var(--pd-muted);
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.leagues-table tbody td {
+    padding: 0.9rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: middle;
+}
+
+.leagues-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.leagues-status {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.7rem;
+    color: var(--pd-muted);
+}
+
+.leagues-value {
+    text-align: right;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    width: 140px;
+}
+
+.leagues-table thead th.leagues-value {
+    text-align: right;
+}
+
+@media (max-width: 720px) {
+    .leagues-header {
+        align-items: flex-start;
+    }
+
+    .leagues-panel {
+        padding: 1.2rem;
+    }
+}
