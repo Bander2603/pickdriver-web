@@ -91,6 +91,10 @@
     background: rgba(255, 255, 255, 0.04);
 }
 
+.leagues-row--active:hover {
+    background: rgba(101, 214, 138, 0.08);
+}
+
 .leagues-row--clickable {
     cursor: pointer;
 }

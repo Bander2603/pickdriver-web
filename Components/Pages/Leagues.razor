@@ -69,9 +69,12 @@ else
                         {
                             var options = GetLeagueOptions(league);
                             var isPending = IsPending(league.Status);
+                            var isActive = IsActive(league.Status);
                             var rowClass = isPending
                                 ? "leagues-row leagues-row--pending leagues-row--clickable"
-                                : "leagues-row";
+                                : isActive
+                                    ? "leagues-row leagues-row--active leagues-row--clickable"
+                                    : "leagues-row";
                             <tr class="@rowClass" @onclick="() => HandleLeagueRowClick(league)">
                                 <td>@league.Name</td>
                                 <td class="leagues-role">
@@ -490,6 +493,11 @@ else
         return string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsActive(string? status)
+    {
+        return string.Equals(status, "active", StringComparison.OrdinalIgnoreCase);
+    }
+
     private string GetRoleLabel(LeaguePublic league)
     {
         return league.OwnerId == userId ? "Owner" : "Miembro";
@@ -504,6 +512,11 @@ else
     {
         if (!IsPending(league.Status))
         {
+            if (IsActive(league.Status))
+            {
+                NavigationManager.NavigateTo($"/leagues/{league.Id}/draft");
+            }
+
             return;
         }
 

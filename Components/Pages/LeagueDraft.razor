@@ -1,0 +1,754 @@
+@page "/leagues/{LeagueId:int}/draft"
+@inject ApiClient ApiClient
+@inject AuthSessionStore AuthSessionStore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(league?.Name ?? "Liga")</PageTitle>
+
+<div class="league-hub-header">
+    <div>
+        <h1>@(league?.Name ?? "Liga")</h1>
+        <p class="league-hub-subtitle text-muted">Liga activa</p>
+    </div>
+    <div class="league-hub-header__actions">
+        <a class="btn btn-outline-primary" href="/leagues">Volver</a>
+    </div>
+</div>
+
+@if (!isAuthorized)
+{
+    <p>Redirigiendo al login...</p>
+}
+else if (isLoading)
+{
+    <p><em>Cargando liga...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-warning" role="alert">@errorMessage</div>
+}
+else if (league is null)
+{
+    <div class="alert alert-warning" role="alert">No se encontro la liga solicitada.</div>
+}
+else
+{
+    <div class="league-hub-meta">
+        <div>
+            <span class="league-hub-meta__label">Status</span>
+            <span class="league-hub-meta__value">@league.Status</span>
+        </div>
+        <div>
+            <span class="league-hub-meta__label">Jugadores</span>
+            <span class="league-hub-meta__value">@members.Count/@league.MaxPlayers</span>
+        </div>
+        <div>
+            <span class="league-hub-meta__label">Equipos</span>
+            <span class="league-hub-meta__value">@(league.TeamsEnabled ? "Activados" : "Desactivados")</span>
+        </div>
+    </div>
+
+    <div class="league-hub-nav">
+        <button class="league-hub-nav__item @(activeTab == LeagueTab.Draft ? "active" : string.Empty)"
+                type="button"
+                @onclick="() => SetTab(LeagueTab.Draft)">
+            Draft actual
+        </button>
+        <button class="league-hub-nav__item @(activeTab == LeagueTab.Results ? "active" : string.Empty)"
+                type="button"
+                @onclick="() => SetTab(LeagueTab.Results)">
+            Resultados
+        </button>
+        <button class="league-hub-nav__item @(activeTab == LeagueTab.History ? "active" : string.Empty)"
+                type="button"
+                @onclick="() => SetTab(LeagueTab.History)">
+            Historial
+        </button>
+    </div>
+
+    <div class="league-hub-panel">
+        @if (activeTab == LeagueTab.Draft)
+        {
+            <section class="league-hub-card">
+                <h2>Draft actual</h2>
+
+                @if (!string.IsNullOrWhiteSpace(draftErrorMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@draftErrorMessage</div>
+                }
+                else if (draftRace is null)
+                {
+                    <p class="text-muted">No hay carreras disponibles para la liga.</p>
+                }
+                else
+                {
+                    <div class="league-hub-draft">
+                        <div class="league-hub-draft__meta">
+                            <div>
+                                <p class="league-hub-draft__title">@draftRace.Name</p>
+                                <p class="text-muted">Ronda @draftRace.Round · @draftRace.Country</p>
+                            </div>
+                            <div class="league-hub-draft__tags">
+                                <span class="league-hub-tag">@draftRace.CircuitName</span>
+                                @if (raceDraft?.MirrorPicks == true)
+                                {
+                                    <span class="league-hub-tag">Mirror</span>
+                                }
+                            </div>
+                        </div>
+
+                        @if (raceDraft is null)
+                        {
+                            <p class="text-muted">Aun no se genero el draft para esta carrera.</p>
+                        }
+                        else if (raceDraft.PickOrder.Count == 0)
+                        {
+                            <p class="text-muted">No hay orden de picks disponible.</p>
+                        }
+                        else
+                        {
+                            <div class="draft-order">
+                                <ol class="draft-order__list">
+                                    @for (var i = 0; i < raceDraft.PickOrder.Count; i++)
+                                    {
+                                        var userId = raceDraft.PickOrder[i];
+                                        var isCurrent = i == raceDraft.CurrentPickIndex;
+                                        <li class="draft-order__item @(isCurrent ? "current" : string.Empty)">
+                                            <span class="draft-order__position">@((i + 1).ToString())</span>
+                                            <span class="draft-order__name">@GetMemberName(userId)</span>
+                                            @if (isCurrent)
+                                            {
+                                                <span class="draft-order__badge">Turno actual</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            </div>
+                        }
+
+                        @if (draftDeadline is not null)
+                        {
+                            <div class="league-hub-deadlines">
+                                <div>
+                                    <span class="league-hub-meta__label">Deadline 1</span>
+                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.FirstHalfDeadline)</span>
+                                </div>
+                                <div>
+                                    <span class="league-hub-meta__label">Deadline 2</span>
+                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.SecondHalfDeadline)</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+        else if (activeTab == LeagueTab.Results)
+        {
+            <section class="league-hub-card">
+                <h2>Resultados</h2>
+
+                @if (!string.IsNullOrWhiteSpace(standingsErrorMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@standingsErrorMessage</div>
+                }
+                else
+                {
+                    @if (league.TeamsEnabled)
+                    {
+                        <div class="league-hub-toggle">
+                            <button type="button" class="league-hub-toggle__button @(showTeamStandings ? string.Empty : "active")" @onclick="() => SetStandingsMode(false)">
+                                Pilotos
+                            </button>
+                            <button type="button" class="league-hub-toggle__button @(showTeamStandings ? "active" : string.Empty)" @onclick="() => SetStandingsMode(true)">
+                                Equipos
+                            </button>
+                        </div>
+                    }
+
+                    @if (!showTeamStandings)
+                    {
+                        @if (playerStandings.Count == 0)
+                        {
+                            <p class="text-muted">Sin resultados por ahora.</p>
+                        }
+                        else
+                        {
+                            <div class="league-hub-table-wrapper">
+                                <table class="league-hub-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Jugador</th>
+                                            <th>Puntos</th>
+                                            <th>Desviacion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var i = 0; i < playerStandings.Count; i++)
+                                        {
+                                            var standing = playerStandings[i];
+                                            <tr>
+                                                <td>@(i + 1)</td>
+                                                <td>@standing.Username</td>
+                                                <td>@standing.TotalPoints.ToString("0.##")</td>
+                                                <td>@standing.TotalDeviation.ToString("0.##")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @if (teamStandings.Count == 0)
+                        {
+                            <p class="text-muted">Sin resultados por equipos por ahora.</p>
+                        }
+                        else
+                        {
+                            <div class="league-hub-table-wrapper">
+                                <table class="league-hub-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Equipo</th>
+                                            <th>Puntos</th>
+                                            <th>Desviacion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var i = 0; i < teamStandings.Count; i++)
+                                        {
+                                            var standing = teamStandings[i];
+                                            <tr>
+                                                <td>@(i + 1)</td>
+                                                <td>@standing.Name</td>
+                                                <td>@standing.TotalPoints.ToString("0.##")</td>
+                                                <td>@standing.TotalDeviation.ToString("0.##")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                }
+            </section>
+        }
+        else if (activeTab == LeagueTab.History)
+        {
+            <section class="league-hub-card">
+                <h2>Historial</h2>
+
+                @if (!string.IsNullOrWhiteSpace(historyErrorMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@historyErrorMessage</div>
+                }
+                else
+                {
+                    <div class="league-hub-toggle">
+                        <button type="button" class="league-hub-toggle__button @(historyMode == HistoryMode.Player ? "active" : string.Empty)" @onclick="() => SetHistoryMode(HistoryMode.Player)">
+                            Jugador
+                        </button>
+                        <button type="button" class="league-hub-toggle__button @(historyMode == HistoryMode.Race ? "active" : string.Empty)" @onclick="() => SetHistoryMode(HistoryMode.Race)">
+                            Carrera
+                        </button>
+                    </div>
+
+                    @if (historyMode == HistoryMode.Player)
+                    {
+                        @if (pickHistory.Count == 0)
+                        {
+                            <p class="text-muted">No hay picks historicos para tu usuario.</p>
+                        }
+                        else
+                        {
+                            <div class="league-hub-table-wrapper">
+                                <table class="league-hub-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Carrera</th>
+                                            <th>Ronda</th>
+                                            <th>Pick</th>
+                                            <th>Driver</th>
+                                            <th>Puntos</th>
+                                            <th>Esperado</th>
+                                            <th>Desviacion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var entry in pickHistory)
+                                        {
+                                            <tr>
+                                                <td>@entry.RaceName</td>
+                                                <td>@entry.Round</td>
+                                                <td>@entry.PickPosition</td>
+                                                <td>@entry.DriverName</td>
+                                                <td>@entry.Points.ToString("0.##")</td>
+                                                <td>@(entry.ExpectedPoints?.ToString("0.##") ?? "-")</td>
+                                                <td>@(entry.Deviation?.ToString("0.##") ?? "-")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @if (historyRaces.Count == 0)
+                        {
+                            <p class="text-muted">No hay carreras completadas para mostrar historial.</p>
+                        }
+                        else
+                        {
+                            <div class="league-hub-history">
+                                <label class="form-label" for="history-race">Carrera</label>
+                                <select id="history-race"
+                                        class="form-select"
+                                        value="@selectedHistoryRound"
+                                        @onchange="HandleHistoryRaceChanged">
+                                    @foreach (var race in historyRaces)
+                                    {
+                                        <option value="@race.Round">@GetRaceLabel(race)</option>
+                                    }
+                                </select>
+                            </div>
+
+                            @if (racePickRows.Count == 0)
+                            {
+                                <p class="text-muted">No hay picks para esta carrera.</p>
+                            }
+                            else
+                            {
+                                <div class="league-hub-table-wrapper">
+                                    <table class="league-hub-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Jugador</th>
+                                                <th>Pick</th>
+                                                <th>Driver</th>
+                                                <th>Puntos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in racePickRows)
+                                            {
+                                                <tr>
+                                                    <td>@row.Username</td>
+                                                    <td>@row.PickPosition</td>
+                                                    <td>@row.DriverName</td>
+                                                    <td>@row.Points.ToString("0.##")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        }
+                    }
+                }
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int LeagueId { get; set; }
+
+    private bool isLoading = true;
+    private bool isAuthorized;
+    private int userId;
+    private string? errorMessage;
+    private string? draftErrorMessage;
+    private string? standingsErrorMessage;
+    private string? historyErrorMessage;
+    private LeaguePublic? league;
+    private Race? draftRace;
+    private RaceDraft? raceDraft;
+    private DraftDeadline? draftDeadline;
+    private readonly List<UserPublic> members = new();
+    private readonly List<LeagueTeam> teams = new();
+    private readonly List<PlayerStanding> playerStandings = new();
+    private readonly List<PlayerTeamStanding> teamStandings = new();
+    private readonly List<PickHistory> pickHistory = new();
+    private readonly List<PickHistory> emptyHistory = new();
+    private readonly List<Race> historyRaces = new();
+    private readonly List<RacePickRow> racePickRows = new();
+    private readonly Dictionary<int, List<PickHistory>> historyCache = new();
+    private int? selectedHistoryRound;
+    private bool showTeamStandings;
+    private HistoryMode historyMode = HistoryMode.Player;
+    private LeagueTab activeTab = LeagueTab.Draft;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthorized = authState.User.Identity?.IsAuthenticated == true;
+        if (!isAuthorized)
+        {
+            RedirectToLogin();
+            isLoading = false;
+            return;
+        }
+
+        var session = await AuthSessionStore.GetAsync();
+        userId = session?.User.Id ?? 0;
+
+        var leaguesResult = await ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
+        if (leaguesResult.Success && leaguesResult.Data is not null)
+        {
+            league = leaguesResult.Data.FirstOrDefault(item => item.Id == LeagueId);
+        }
+        else
+        {
+            errorMessage = leaguesResult.ErrorMessage ?? "No se pudo cargar la liga.";
+            isLoading = false;
+            return;
+        }
+
+        if (league is null)
+        {
+            errorMessage = "No se encontro la liga solicitada.";
+            isLoading = false;
+            return;
+        }
+
+        var membersTask = ApiClient.GetAsync<List<UserPublic>>($"leagues/{LeagueId}/members", auth: true);
+        Task<ApiResult<List<LeagueTeam>>>? teamsTask = null;
+        if (league.TeamsEnabled)
+        {
+            teamsTask = ApiClient.GetAsync<List<LeagueTeam>>($"leagues/{LeagueId}/teams", auth: true);
+        }
+
+        var standingsTask = ApiClient.GetAsync<List<PlayerStanding>>($"players/standings/players?league_id={LeagueId}", auth: true);
+        Task<ApiResult<List<PlayerTeamStanding>>>? teamStandingsTask = null;
+        if (league.TeamsEnabled)
+        {
+            teamStandingsTask = ApiClient.GetAsync<List<PlayerTeamStanding>>($"players/standings/teams?league_id={LeagueId}", auth: true);
+        }
+
+        var currentRaceTask = ApiClient.GetAsync<Race>("races/current");
+        var upcomingRacesTask = ApiClient.GetAsync<List<Race>>("races/upcoming");
+        var allRacesTask = ApiClient.GetAsync<List<Race>>("races");
+
+        var tasks = new List<Task> { membersTask, standingsTask, currentRaceTask, upcomingRacesTask, allRacesTask };
+        if (teamsTask is not null)
+        {
+            tasks.Add(teamsTask);
+        }
+        if (teamStandingsTask is not null)
+        {
+            tasks.Add(teamStandingsTask);
+        }
+
+        await Task.WhenAll(tasks);
+
+        var membersResult = await membersTask;
+        if (membersResult.Success && membersResult.Data is not null)
+        {
+            members.AddRange(membersResult.Data.OrderBy(member => member.Username, StringComparer.OrdinalIgnoreCase));
+        }
+
+        var allRacesResult = await allRacesTask;
+        if (allRacesResult.Success && allRacesResult.Data is not null)
+        {
+            InitializeHistoryRaces(allRacesResult.Data);
+        }
+
+        if (teamsTask is not null)
+        {
+            var teamsResult = await teamsTask;
+            if (teamsResult.Success && teamsResult.Data is not null)
+            {
+                teams.AddRange(teamsResult.Data);
+            }
+        }
+
+        var standingsResult = await standingsTask;
+        if (standingsResult.Success && standingsResult.Data is not null)
+        {
+            playerStandings.AddRange(standingsResult.Data.OrderByDescending(item => item.TotalPoints));
+        }
+        else if (!standingsResult.Success)
+        {
+            standingsErrorMessage = standingsResult.ErrorMessage ?? "No se pudieron cargar los resultados.";
+        }
+
+        if (teamStandingsTask is not null)
+        {
+            var teamStandingsResult = await teamStandingsTask;
+            if (teamStandingsResult.Success && teamStandingsResult.Data is not null)
+            {
+                teamStandings.AddRange(teamStandingsResult.Data.OrderByDescending(item => item.TotalPoints));
+            }
+        }
+
+        var currentRaceResult = await currentRaceTask;
+        var upcomingRacesResult = await upcomingRacesTask;
+        draftRace = ResolveDraftRace(currentRaceResult, upcomingRacesResult);
+
+        if (draftRace is not null)
+        {
+            await LoadDraftAsync(draftRace.Id);
+        }
+
+        if (userId > 0 && members.Any(member => member.Id == userId))
+        {
+            await LoadUserHistoryAsync(userId);
+        }
+
+        if (historyMode == HistoryMode.Race && selectedHistoryRound.HasValue)
+        {
+            await LoadRaceHistoryAsync(selectedHistoryRound.Value);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadDraftAsync(int raceId)
+    {
+        draftErrorMessage = null;
+        var draftResult = await ApiClient.GetAsync<RaceDraft>($"leagues/{LeagueId}/draft/{raceId}", auth: true);
+        if (draftResult.Success && draftResult.Data is not null)
+        {
+            raceDraft = draftResult.Data;
+        }
+        else
+        {
+            draftErrorMessage = draftResult.ErrorMessage ?? "No se pudo cargar el draft.";
+        }
+
+        var deadlineResult = await ApiClient.GetAsync<DraftDeadline>($"leagues/{LeagueId}/draft/{raceId}/deadlines", auth: true);
+        if (deadlineResult.Success && deadlineResult.Data is not null)
+        {
+            draftDeadline = deadlineResult.Data;
+        }
+    }
+
+    private Race? ResolveDraftRace(ApiResult<Race> currentRaceResult, ApiResult<List<Race>> upcomingRacesResult)
+    {
+        var candidates = new List<Race>();
+
+        if (currentRaceResult.Success && currentRaceResult.Data is not null && !currentRaceResult.Data.Completed)
+        {
+            candidates.Add(currentRaceResult.Data);
+        }
+
+        if (upcomingRacesResult.Success && upcomingRacesResult.Data is not null)
+        {
+            candidates.AddRange(upcomingRacesResult.Data.Where(race => !race.Completed));
+        }
+
+        if (league?.InitialRaceRound is int initialRound)
+        {
+            candidates = candidates.Where(race => race.Round >= initialRound).ToList();
+        }
+
+        return candidates
+            .OrderBy(race => race.Round)
+            .ThenBy(race => race.RaceTime ?? DateTimeOffset.MaxValue)
+            .FirstOrDefault();
+    }
+
+    private string GetMemberName(int userId)
+    {
+        var member = members.FirstOrDefault(item => item.Id == userId);
+        return member?.Username ?? $"#{userId}";
+    }
+
+    private string FormatDate(DateTimeOffset? date)
+    {
+        return date?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "-";
+    }
+
+    private async Task HandleHistoryRaceChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var round))
+        {
+            selectedHistoryRound = round;
+            await LoadRaceHistoryAsync(round);
+        }
+    }
+
+    private async Task LoadUserHistoryAsync(int userId)
+    {
+        historyErrorMessage = null;
+        pickHistory.Clear();
+
+        var history = await GetHistoryForUserAsync(userId);
+        if (history is not null)
+        {
+            pickHistory.AddRange(history.OrderBy(entry => entry.Round));
+            return;
+        }
+
+        historyErrorMessage ??= "No se pudo cargar el historial.";
+    }
+
+    private async Task<List<PickHistory>?> GetHistoryForUserAsync(int userId)
+    {
+        if (historyCache.TryGetValue(userId, out var cached))
+        {
+            return cached;
+        }
+
+        var result = await ApiClient.GetAsync<List<PickHistory>>($"players/standings/picks?league_id={LeagueId}&user_id={userId}", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            historyCache[userId] = result.Data;
+            return result.Data;
+        }
+
+        historyErrorMessage ??= result.ErrorMessage;
+        historyCache[userId] = emptyHistory;
+        return null;
+    }
+
+    private async Task LoadRaceHistoryAsync(int round)
+    {
+        historyErrorMessage = null;
+        racePickRows.Clear();
+
+        await EnsureAllHistoryLoadedAsync();
+
+        foreach (var member in members)
+        {
+            if (!historyCache.TryGetValue(member.Id, out var history))
+            {
+                continue;
+            }
+
+            foreach (var entry in history.Where(item => item.Round == round))
+            {
+                racePickRows.Add(new RacePickRow
+                {
+                    Username = member.Username,
+                    PickPosition = entry.PickPosition,
+                    DriverName = entry.DriverName,
+                    Points = entry.Points
+                });
+            }
+        }
+
+        racePickRows.Sort((a, b) =>
+        {
+            var pickComparison = a.PickPosition.CompareTo(b.PickPosition);
+            return pickComparison != 0 ? pickComparison : string.Compare(a.Username, b.Username, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private async Task EnsureAllHistoryLoadedAsync()
+    {
+        var failed = false;
+
+        foreach (var member in members)
+        {
+            if (historyCache.ContainsKey(member.Id))
+            {
+                continue;
+            }
+
+            var history = await GetHistoryForUserAsync(member.Id);
+            if (history is null)
+            {
+                failed = true;
+            }
+        }
+
+        if (failed)
+        {
+            historyErrorMessage ??= "No se pudo cargar el historial de todos los jugadores.";
+        }
+    }
+
+    private void SetTab(LeagueTab tab)
+    {
+        activeTab = tab;
+    }
+
+    private void SetStandingsMode(bool showTeams)
+    {
+        showTeamStandings = showTeams;
+    }
+
+    private async Task SetHistoryMode(HistoryMode mode)
+    {
+        historyMode = mode;
+        historyErrorMessage = null;
+
+        if (mode == HistoryMode.Player)
+        {
+            if (userId > 0)
+            {
+                await LoadUserHistoryAsync(userId);
+            }
+            else
+            {
+                pickHistory.Clear();
+            }
+        }
+        else if (selectedHistoryRound.HasValue)
+        {
+            await LoadRaceHistoryAsync(selectedHistoryRound.Value);
+        }
+    }
+
+    private void InitializeHistoryRaces(List<Race> races)
+    {
+        historyRaces.Clear();
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var race in races)
+        {
+            if (race.Completed || (race.RaceTime.HasValue && race.RaceTime.Value <= now))
+            {
+                historyRaces.Add(race);
+            }
+        }
+
+        historyRaces.Sort((a, b) => a.Round.CompareTo(b.Round));
+        if (historyRaces.Count > 0)
+        {
+            selectedHistoryRound = historyRaces[^1].Round;
+        }
+    }
+
+    private static string GetRaceLabel(Race race)
+    {
+        return $"Ronda {race.Round} · {race.Name}";
+    }
+
+    private void RedirectToLogin()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+    private enum LeagueTab
+    {
+        Draft,
+        Results,
+        History
+    }
+
+    private enum HistoryMode
+    {
+        Player,
+        Race
+    }
+
+    private sealed class RacePickRow
+    {
+        public string Username { get; set; } = string.Empty;
+        public int PickPosition { get; set; }
+        public string DriverName { get; set; } = string.Empty;
+        public double Points { get; set; }
+    }
+}

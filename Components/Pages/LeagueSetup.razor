@@ -868,13 +868,21 @@ else
         isSubmitting = true;
         actionMessage = null;
 
+        var assignResult = await ApiClient.PostAsync($"leagues/{league.Id}/assign-pick-order", new { }, auth: true);
+        if (!assignResult.Success)
+        {
+            isSubmitting = false;
+            actionMessage = assignResult.ErrorMessage ?? "No se pudo generar el orden de picks.";
+            return;
+        }
+
         var result = await ApiClient.PostAsync($"leagues/{league.Id}/start-draft", new { }, auth: true);
 
         isSubmitting = false;
 
         if (result.Success)
         {
-            NavigationManager.NavigateTo("/leagues");
+            NavigationManager.NavigateTo($"/leagues/{league.Id}/draft");
             return;
         }
 
