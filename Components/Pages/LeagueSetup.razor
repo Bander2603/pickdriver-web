@@ -52,6 +52,10 @@ else
             <span class="league-setup-meta__label">Equipos</span>
             <span class="league-setup-meta__value">@(league.TeamsEnabled ? "Activados" : "Desactivados")</span>
         </div>
+        <div class="league-setup-meta__item">
+            <span class="league-setup-meta__label">Codigo de invitacion</span>
+            <span class="league-setup-meta__value">@InviteCodeLabel</span>
+        </div>
     </div>
 
     <div class="league-setup-grid">
@@ -95,8 +99,8 @@ else
                 }
 
                 <div class="league-setup-actions">
-                    <button class="btn btn-outline-primary" type="button" disabled="@(!CanCreateTeams)">
-                        Crear Equipos
+                    <button class="btn btn-teams" type="button" @onclick="OpenTeamsModal" disabled="@(!CanCreateTeams)">
+                        @TeamsActionLabel
                     </button>
                     <button class="btn btn-success" type="button" @onclick="HandleStartLeague" disabled="@(!CanStart)">
                         ¡Comenzar!
@@ -118,7 +122,133 @@ else
                 </div>
             }
         </section>
+
+        <section class="league-setup-card">
+            <h2>Equipos</h2>
+
+            @if (league?.TeamsEnabled != true)
+            {
+                <p class="text-muted">Esta liga no utiliza equipos.</p>
+            }
+            else if (!LeagueFull)
+            {
+                <p class="text-muted">Completa la liga para crear equipos.</p>
+            }
+            else if (teams.Count == 0)
+            {
+                <p class="text-muted">Aun no hay equipos creados.</p>
+            }
+            else
+            {
+                <div class="league-teams-readonly">
+                    @foreach (var team in teams)
+                    {
+                        <div class="league-team-card">
+                            <div class="league-team-card__header">
+                                <span>@(string.IsNullOrWhiteSpace(team.Name) ? "Equipo" : team.Name)</span>
+                                <span class="league-team-card__count">@team.Members.Count</span>
+                            </div>
+                            <p class="league-team-card__members">@GetTeamMembersLabel(team)</p>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
     </div>
+
+    @if (showTeamsModal)
+    {
+        <div class="league-setup-modal" role="dialog" aria-modal="true" aria-labelledby="league-teams-title">
+            <div class="league-setup-modal__backdrop" @onclick="CloseTeamsModal"></div>
+            <div class="league-setup-modal__content">
+                <div class="league-setup-modal__header">
+                    <h2 id="league-teams-title">@TeamsActionLabel</h2>
+                    <button type="button" class="league-setup-modal__close" @onclick="CloseTeamsModal" aria-label="Cerrar">
+                        X
+                    </button>
+                </div>
+
+                @if (!CanManageTeams)
+                {
+                    <p class="text-muted">No puedes editar equipos en este momento.</p>
+                }
+                else
+                {
+                    <div class="league-teams-panel">
+                        <div class="league-teams-controls">
+                            <div class="league-teams-controls__field">
+                                <label class="form-label" for="teams-count">Cantidad de equipos</label>
+                                <InputNumber id="teams-count"
+                                             class="form-control"
+                                             @bind-Value="teamCount"
+                                             @bind-Value:after="HandleTeamCountChanged"
+                                             @attributes="TeamCountAttributes"
+                                             disabled="@isSavingTeams" />
+                                <small class="text-muted">
+                                    Minimo @MinTeamsAllowed · Maximo @MaxTeamsAllowed · @TeamSizeLabel
+                                </small>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(teamsErrorMessage))
+                        {
+                            <div class="alert alert-warning" role="alert">@teamsErrorMessage</div>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(teamsSuccessMessage))
+                        {
+                            <div class="alert alert-success" role="alert">@teamsSuccessMessage</div>
+                        }
+
+                        <div class="league-teams-grid">
+                            @for (var i = 0; i < teamEditors.Count; i++)
+                            {
+                                var team = teamEditors[i];
+                                <div class="league-team-card">
+                                    <div class="league-team-card__header">
+                                        <span>Equipo @(i + 1)</span>
+                                        <span class="league-team-card__count">@GetTeamMemberCount(i)</span>
+                                    </div>
+                                    <InputText class="form-control"
+                                               placeholder="Nombre del equipo"
+                                               @bind-Value="team.Name"
+                                               @bind-Value:after="ClearTeamsMessages"
+                                               disabled="@isSavingTeams" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="league-teams-members">
+                            <h3>Asignar jugadores</h3>
+                            <div class="league-teams-members__list">
+                                @foreach (var member in members)
+                                {
+                                    <div class="league-teams-member">
+                                        <span>@member.Username</span>
+                                        <select class="form-select"
+                                                value="@GetMemberTeamValue(member.Id)"
+                                                @onchange="(e) => HandleMemberTeamChanged(member.Id, e)"
+                                                disabled="@isSavingTeams">
+                                            <option value="">Sin asignar</option>
+                                            @for (var i = 0; i < teamEditors.Count; i++)
+                                            {
+                                                <option value="@i">@GetTeamLabel(i)</option>
+                                            }
+                                        </select>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="league-teams-actions">
+                            <button class="btn btn-teams" type="button" @onclick="HandleSaveTeams" disabled="@isSavingTeams">
+                                @(teams.Count > 0 ? "Guardar equipos" : "Crear equipos")
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -128,13 +258,21 @@ else
     private bool isLoading = true;
     private bool isAuthorized;
     private bool isSubmitting;
+    private bool isSavingTeams;
+    private bool showTeamsModal;
     private int userId;
+    private int seasonTeamsCount;
+    private int teamCount;
     private LeaguePublic? league;
     private string? errorMessage;
     private string? membersErrorMessage;
     private string? actionMessage;
+    private string? teamsErrorMessage;
+    private string? teamsSuccessMessage;
     private readonly List<UserPublic> members = new();
     private readonly List<LeagueTeam> teams = new();
+    private readonly List<TeamEditor> teamEditors = new();
+    private readonly Dictionary<int, int?> memberAssignments = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -166,16 +304,22 @@ else
         {
             var membersTask = ApiClient.GetAsync<List<UserPublic>>($"leagues/{LeagueId}/members", auth: true);
             Task<ApiResult<List<LeagueTeam>>>? teamsTask = null;
+            Task<ApiResult<List<TeamStanding>>>? seasonTeamsTask = null;
 
             if (league.TeamsEnabled)
             {
                 teamsTask = ApiClient.GetAsync<List<LeagueTeam>>($"leagues/{LeagueId}/teams", auth: true);
+                seasonTeamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
             }
 
             var tasks = new List<Task> { membersTask };
             if (teamsTask is not null)
             {
                 tasks.Add(teamsTask);
+            }
+            if (seasonTeamsTask is not null)
+            {
+                tasks.Add(seasonTeamsTask);
             }
 
             await Task.WhenAll(tasks);
@@ -198,6 +342,17 @@ else
                     teams.AddRange(teamsResult.Data);
                 }
             }
+
+            if (seasonTeamsTask is not null)
+            {
+                var seasonTeamsResult = await seasonTeamsTask;
+                if (seasonTeamsResult.Success && seasonTeamsResult.Data is not null)
+                {
+                    seasonTeamsCount = seasonTeamsResult.Data.Count;
+                }
+            }
+
+            InitializeTeamsEditor();
         }
 
         isLoading = false;
@@ -208,6 +363,8 @@ else
     private bool LeagueFull => league is not null && members.Count >= league.MaxPlayers;
 
     private bool CanCreateTeams => IsOwner && league?.TeamsEnabled == true && LeagueFull;
+
+    private bool CanManageTeams => CanCreateTeams;
 
     private bool TeamsReady
     {
@@ -234,6 +391,39 @@ else
     }
 
     private bool CanStart => IsOwner && LeagueFull && TeamsReady;
+
+    private string TeamsActionLabel => teams.Count > 0 ? "Editar equipos" : "Crear equipos";
+
+    private string InviteCodeLabel => string.IsNullOrWhiteSpace(league?.InviteCode) ? "-" : league.InviteCode;
+
+    private int MinTeamsAllowed => 2;
+
+    private int MaxTeamsAllowed => ResolveMaxTeamsAllowed();
+
+    private int MinTeamSize => GetTeamSizeRange().Min;
+
+    private int MaxTeamSize => GetTeamSizeRange().Max;
+
+    private int EffectiveMinTeamsAllowed => Math.Min(MinTeamsAllowed, MaxTeamsAllowed);
+
+    private string TeamSizeLabel
+    {
+        get
+        {
+            if (MaxTeamSize <= 0)
+            {
+                return "jugadores por equipo";
+            }
+
+            return $"{MaxTeamSize} jugadores por equipo";
+        }
+    }
+
+    private Dictionary<string, object> TeamCountAttributes => new()
+    {
+        ["min"] = EffectiveMinTeamsAllowed,
+        ["max"] = MaxTeamsAllowed
+    };
 
     private string GetMemberMeta(UserPublic member)
     {
@@ -268,6 +458,372 @@ else
         }
 
         return "sin equipo";
+    }
+
+    private void OpenTeamsModal()
+    {
+        if (!CanManageTeams)
+        {
+            return;
+        }
+
+        ClearTeamsMessages();
+        showTeamsModal = true;
+    }
+
+    private void CloseTeamsModal()
+    {
+        if (isSavingTeams)
+        {
+            return;
+        }
+
+        showTeamsModal = false;
+    }
+
+    private void InitializeTeamsEditor()
+    {
+        if (league?.TeamsEnabled != true)
+        {
+            return;
+        }
+
+        teamEditors.Clear();
+        memberAssignments.Clear();
+
+        foreach (var member in members)
+        {
+            memberAssignments[member.Id] = null;
+        }
+
+        if (teams.Count > 0)
+        {
+            foreach (var team in teams)
+            {
+                teamEditors.Add(new TeamEditor
+                {
+                    TeamId = team.Id,
+                    Name = string.IsNullOrWhiteSpace(team.Name) ? $"Equipo {teamEditors.Count + 1}" : team.Name
+                });
+            }
+
+            for (var i = 0; i < teams.Count; i++)
+            {
+                foreach (var teamMember in teams[i].Members)
+                {
+                    if (memberAssignments.ContainsKey(teamMember.User.Id))
+                    {
+                        memberAssignments[teamMember.User.Id] = i;
+                    }
+                }
+            }
+
+            teamCount = teamEditors.Count;
+        }
+        else
+        {
+            teamCount = MaxTeamsAllowed;
+        }
+
+        ClampTeamCount();
+    }
+
+    private void ClampTeamCount()
+    {
+        var maxTeams = MaxTeamsAllowed;
+        if (maxTeams == 0)
+        {
+            teamCount = 0;
+            teamEditors.Clear();
+            return;
+        }
+
+        var minTeams = Math.Min(MinTeamsAllowed, maxTeams);
+        teamCount = Math.Clamp(teamCount, minTeams, maxTeams);
+        SyncTeamEditors();
+    }
+
+    private void SyncTeamEditors()
+    {
+        if (teamEditors.Count < teamCount)
+        {
+            for (var i = teamEditors.Count; i < teamCount; i++)
+            {
+                teamEditors.Add(new TeamEditor { Name = $"Equipo {i + 1}" });
+            }
+        }
+        else if (teamEditors.Count > teamCount)
+        {
+            teamEditors.RemoveRange(teamCount, teamEditors.Count - teamCount);
+
+            var userIds = memberAssignments.Keys.ToList();
+            foreach (var userId in userIds)
+            {
+                if (memberAssignments[userId] is int teamIndex && teamIndex >= teamCount)
+                {
+                    memberAssignments[userId] = null;
+                }
+            }
+        }
+    }
+
+    private void HandleTeamCountChanged()
+    {
+        ClearTeamsMessages();
+        ClampTeamCount();
+    }
+
+    private void HandleMemberTeamChanged(int userId, ChangeEventArgs args)
+    {
+        ClearTeamsMessages();
+
+        if (!memberAssignments.ContainsKey(userId))
+        {
+            return;
+        }
+
+        var rawValue = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            memberAssignments[userId] = null;
+            return;
+        }
+
+        if (int.TryParse(rawValue, out var teamIndex) && teamIndex >= 0 && teamIndex < teamEditors.Count)
+        {
+            memberAssignments[userId] = teamIndex;
+        }
+    }
+
+    private void ClearTeamsMessages()
+    {
+        teamsErrorMessage = null;
+        teamsSuccessMessage = null;
+    }
+
+    private int ResolveMaxTeamsAllowed()
+    {
+        var totalPlayers = members.Count;
+        if (totalPlayers == 0)
+        {
+            return 0;
+        }
+
+        var maxByPlayers = totalPlayers / 2;
+        if (seasonTeamsCount > 0)
+        {
+            return Math.Min(maxByPlayers, seasonTeamsCount);
+        }
+
+        return maxByPlayers;
+    }
+
+    private (int Min, int Max) GetTeamSizeRange()
+    {
+        var totalPlayers = members.Count;
+        if (teamCount <= 0 || totalPlayers == 0)
+        {
+            return (0, 0);
+        }
+
+        var min = totalPlayers / teamCount;
+        var max = (int)Math.Ceiling(totalPlayers / (double)teamCount);
+        min = Math.Max(min, 2);
+        max = Math.Max(max, min);
+        return (min, max);
+    }
+
+    private int GetTeamMemberCount(int teamIndex)
+    {
+        return memberAssignments.Values.Count(value => value == teamIndex);
+    }
+
+    private List<int> GetTeamMemberIds(int teamIndex)
+    {
+        return memberAssignments
+            .Where(item => item.Value == teamIndex)
+            .Select(item => item.Key)
+            .ToList();
+    }
+
+    private string GetMemberTeamValue(int userId)
+    {
+        return memberAssignments.TryGetValue(userId, out var teamIndex) && teamIndex is not null
+            ? teamIndex.Value.ToString()
+            : string.Empty;
+    }
+
+    private string GetTeamLabel(int teamIndex)
+    {
+        if (teamIndex < 0 || teamIndex >= teamEditors.Count)
+        {
+            return $"Equipo {teamIndex + 1}";
+        }
+
+        var name = teamEditors[teamIndex].Name;
+        return string.IsNullOrWhiteSpace(name) ? $"Equipo {teamIndex + 1}" : name;
+    }
+
+    private string GetTeamMembersLabel(LeagueTeam team)
+    {
+        if (team.Members.Count == 0)
+        {
+            return "Sin miembros";
+        }
+
+        var names = team.Members
+            .Select(member => GetMemberName(member.User.Id))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+
+        return string.Join(", ", names);
+    }
+
+    private string GetMemberName(int userId)
+    {
+        var member = members.FirstOrDefault(item => item.Id == userId);
+        return member?.Username ?? $"#{userId}";
+    }
+
+    private string? ValidateTeams()
+    {
+        if (!CanManageTeams)
+        {
+            return "No puedes editar equipos en este momento.";
+        }
+
+        if (teamEditors.Count == 0)
+        {
+            return "Define la cantidad de equipos.";
+        }
+
+        if (teamEditors.Any(team => string.IsNullOrWhiteSpace(team.Name)))
+        {
+            return "Cada equipo necesita un nombre.";
+        }
+
+        if (memberAssignments.Values.Any(value => value is null))
+        {
+            return "Asigna todos los jugadores a un equipo.";
+        }
+
+        var (minSize, maxSize) = GetTeamSizeRange();
+        var teamSizes = teamEditors.Select((_, index) => GetTeamMemberCount(index));
+        if (teamSizes.Any(size => size < minSize || size > maxSize))
+        {
+            return $"Cada equipo debe tener entre {minSize} y {maxSize} jugadores.";
+        }
+
+        return null;
+    }
+
+    private async Task HandleSaveTeams()
+    {
+        if (league is null)
+        {
+            return;
+        }
+
+        ClearTeamsMessages();
+
+        var validationError = ValidateTeams();
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            teamsErrorMessage = validationError;
+            return;
+        }
+
+        isSavingTeams = true;
+
+        var errors = new List<string>();
+        var memberIdsByTeam = teamEditors
+            .Select((_, index) => GetTeamMemberIds(index))
+            .ToList();
+
+        var existingIds = teams.Select(team => team.Id).ToHashSet();
+        var currentIds = teamEditors
+            .Where(editor => editor.TeamId.HasValue)
+            .Select(editor => editor.TeamId!.Value)
+            .ToHashSet();
+        var removedIds = existingIds.Except(currentIds).ToList();
+
+        foreach (var id in removedIds)
+        {
+            var deleteResult = await ApiClient.DeleteAsync($"teams/{id}", auth: true);
+            if (!deleteResult.Success)
+            {
+                errors.Add(deleteResult.ErrorMessage ?? "No se pudo eliminar un equipo.");
+            }
+        }
+
+        for (var i = 0; i < teamEditors.Count; i++)
+        {
+            var editor = teamEditors[i];
+            var name = editor.Name.Trim();
+            var userIds = memberIdsByTeam[i];
+
+            if (editor.TeamId.HasValue)
+            {
+                var request = new UpdateTeamRequest
+                {
+                    Name = name,
+                    UserIds = userIds
+                };
+
+                var result = await ApiClient.PutAsync<UpdateTeamRequest, LeagueTeam>($"teams/{editor.TeamId.Value}", request, auth: true);
+                if (!result.Success)
+                {
+                    errors.Add(result.ErrorMessage ?? $"No se pudo actualizar el equipo {name}.");
+                }
+            }
+            else
+            {
+                var request = new CreateTeamRequest
+                {
+                    LeagueId = league.Id,
+                    Name = name,
+                    UserIds = userIds
+                };
+
+                var result = await ApiClient.PostAsync<CreateTeamRequest, LeagueTeam>("teams", request, auth: true);
+                if (!result.Success)
+                {
+                    errors.Add(result.ErrorMessage ?? $"No se pudo crear el equipo {name}.");
+                }
+            }
+        }
+
+        isSavingTeams = false;
+
+        if (errors.Count > 0)
+        {
+            teamsErrorMessage = errors[0];
+            return;
+        }
+
+        if (await RefreshTeamsAsync())
+        {
+            teamsSuccessMessage = "Equipos guardados.";
+        }
+    }
+
+    private async Task<bool> RefreshTeamsAsync()
+    {
+        if (league is null)
+        {
+            return false;
+        }
+
+        var result = await ApiClient.GetAsync<List<LeagueTeam>>($"leagues/{league.Id}/teams", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            teams.Clear();
+            teams.AddRange(result.Data);
+            InitializeTeamsEditor();
+            return true;
+        }
+
+        teamsErrorMessage = result.ErrorMessage ?? "No se pudieron cargar los equipos.";
+        return false;
     }
 
     private async Task ConfirmDeleteLeague()
@@ -337,5 +893,11 @@ else
     private static bool IsPending(string? status)
     {
         return string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class TeamEditor
+    {
+        public int? TeamId { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }

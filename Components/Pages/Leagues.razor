@@ -16,6 +16,9 @@
     @if (isAuthorized)
     {
         <div class="leagues-header__actions">
+            <button class="btn btn-outline-primary" type="button" @onclick="OpenJoinModal" disabled="@isLoading">
+                Unirse a liga
+            </button>
             <button class="btn btn-primary leagues-create" type="button" @onclick="OpenCreateModal" disabled="@isLoading">
                 Crear liga
             </button>
@@ -76,14 +79,16 @@ else
                                 </td>
                                 <td><span class="leagues-status @GetStatusClass(league.Status)">@league.Status</span></td>
                                 <td class="leagues-table-options">
-                                    @foreach (var option in options)
-                                    {
-                                        <span class="leagues-option-pill">@option</span>
-                                    }
-                                    @if (options.Count == 0)
-                                    {
-                                        <span class="leagues-option-pill leagues-option-pill--inactive">Sin opciones</span>
-                                    }
+                                    <div class="leagues-options-row">
+                                        @foreach (var option in options)
+                                        {
+                                            <span class="leagues-option-pill">@option</span>
+                                        }
+                                        @if (options.Count == 0)
+                                        {
+                                            <span class="leagues-option-pill leagues-option-pill--inactive">Sin opciones</span>
+                                        }
+                                    </div>
                                 </td>
                                 <td class="leagues-value">@GetMembersLabel(league)</td>
                                 <td class="leagues-actions">
@@ -185,6 +190,47 @@ else
             </div>
         </div>
     }
+
+    @if (showJoinModal)
+    {
+        <div class="leagues-modal" role="dialog" aria-modal="true" aria-labelledby="leagues-join-title">
+            <div class="leagues-modal__backdrop" @onclick="CloseJoinModal"></div>
+            <div class="leagues-modal__content">
+                <div class="leagues-modal__header">
+                    <h2 id="leagues-join-title">Unirse a una liga</h2>
+                    <button type="button" class="leagues-modal__close" @onclick="CloseJoinModal" aria-label="Cerrar">
+                        X
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(joinErrorMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@joinErrorMessage</div>
+                }
+
+                <EditForm Model="joinModel" OnValidSubmit="HandleJoinLeague">
+                    <DataAnnotationsValidator />
+
+                    <div class="leagues-form-grid">
+                        <div>
+                            <label class="form-label" for="league-code">Codigo de invitacion</label>
+                            <InputText id="league-code" class="form-control" @bind-Value="joinModel.Code" />
+                            <ValidationMessage For="() => joinModel.Code" />
+                        </div>
+                    </div>
+
+                    <div class="leagues-modal__actions">
+                        <button type="button" class="btn btn-outline-primary" @onclick="CloseJoinModal" disabled="@isJoining">
+                            Cancelar
+                        </button>
+                        <button class="btn btn-primary" type="submit" disabled="@isJoining">
+                            @(isJoining ? "Uniendo..." : "Unirse")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -192,15 +238,19 @@ else
     private bool isAuthorized;
     private string? errorMessage;
     private string? createErrorMessage;
+    private string? joinErrorMessage;
     private string? deleteErrorMessage;
     private bool showCreateModal;
+    private bool showJoinModal;
     private bool isSubmitting;
+    private bool isJoining;
     private int userId;
     private int maxPlayersLimit;
     private readonly List<LeaguePublic> leagues = new();
     private readonly HashSet<int> deletingLeagueIds = new();
     private readonly Dictionary<int, int> leagueMemberCounts = new();
     private CreateLeagueModel createModel = new();
+    private JoinLeagueModel joinModel = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -273,6 +323,25 @@ else
         ResetCreateModel();
     }
 
+    private void OpenJoinModal()
+    {
+        joinErrorMessage = null;
+        ResetJoinModel();
+        showJoinModal = true;
+    }
+
+    private void CloseJoinModal()
+    {
+        if (isJoining)
+        {
+            return;
+        }
+
+        showJoinModal = false;
+        joinErrorMessage = null;
+        ResetJoinModel();
+    }
+
     private void ResetCreateModel()
     {
         createModel = new CreateLeagueModel
@@ -281,6 +350,11 @@ else
         };
 
         HandleMaxPlayersChanged();
+    }
+
+    private void ResetJoinModel()
+    {
+        joinModel = new JoinLeagueModel();
     }
 
     private void HandleMaxPlayersChanged()
@@ -338,6 +412,36 @@ else
         }
 
         createErrorMessage = result.ErrorMessage ?? "No se pudo crear la liga.";
+    }
+
+    private async Task HandleJoinLeague()
+    {
+        joinErrorMessage = null;
+        isJoining = true;
+
+        var request = new JoinLeagueRequest
+        {
+            Code = joinModel.Code.Trim()
+        };
+
+        var result = await ApiClient.PostAsync<JoinLeagueRequest, LeaguePublic>("leagues/join", request, auth: true);
+
+        isJoining = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            if (leagues.All(item => item.Id != result.Data.Id))
+            {
+                leagues.Insert(0, result.Data);
+                _ = LoadLeagueMemberCountAsync(result.Data);
+            }
+
+            showJoinModal = false;
+            ResetJoinModel();
+            return;
+        }
+
+        joinErrorMessage = result.ErrorMessage ?? "No se pudo unir a la liga.";
     }
 
     private async Task ConfirmDeleteLeague(LeaguePublic league)
@@ -549,5 +653,11 @@ else
         public bool TeamsEnabled { get; set; }
         public bool BansEnabled { get; set; }
         public bool MirrorEnabled { get; set; }
+    }
+
+    private sealed class JoinLeagueModel
+    {
+        [Required(ErrorMessage = "El codigo es obligatorio.")]
+        public string Code { get; set; } = string.Empty;
     }
 }

@@ -128,6 +128,9 @@
 
 .leagues-table-options {
     width: 220px;
+}
+
+.leagues-options-row {
     display: flex;
     flex-wrap: nowrap;
     gap: 0.35rem;
