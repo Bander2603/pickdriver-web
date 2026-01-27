@@ -36,16 +36,16 @@ else
 {
     <div class="league-hub-meta">
         <div>
-            <span class="league-hub-meta__label">Status</span>
-            <span class="league-hub-meta__value">@league.Status</span>
+            <span class="league-hub-meta__label">Opciones</span>
+            <span class="league-hub-meta__value">@LeagueOptionsLabel</span>
         </div>
         <div>
             <span class="league-hub-meta__label">Jugadores</span>
             <span class="league-hub-meta__value">@members.Count/@league.MaxPlayers</span>
         </div>
         <div>
-            <span class="league-hub-meta__label">Equipos</span>
-            <span class="league-hub-meta__value">@(league.TeamsEnabled ? "Activados" : "Desactivados")</span>
+            <span class="league-hub-meta__label">Draft</span>
+            <span class="league-hub-meta__value">@DraftProgressLabel</span>
         </div>
     </div>
 
@@ -91,12 +91,47 @@ else
                             </div>
                             <div class="league-hub-draft__tags">
                                 <span class="league-hub-tag">@draftRace.CircuitName</span>
-                                @if (raceDraft?.MirrorPicks == true)
-                                {
-                                    <span class="league-hub-tag">Mirror</span>
-                                }
                             </div>
                         </div>
+
+                        @if (draftDeadline is not null)
+                        {
+                            <div class="league-hub-deadlines">
+                                <div>
+                                    <span class="league-hub-meta__label">Deadline 1</span>
+                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.FirstHalfDeadline)</span>
+                                </div>
+                                <div>
+                                    <span class="league-hub-meta__label">Deadline 2</span>
+                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.SecondHalfDeadline)</span>
+                                </div>
+                            </div>
+                        }
+
+                        @if (raceDraft is not null)
+                        {
+                            <div class="league-hub-actions">
+                                <button class="btn btn-pick" type="button" @onclick="OpenPickModal" disabled="@IsPickDisabled">
+                                    Pick
+                                </button>
+                                <button class="btn btn-ban" type="button" @onclick="OpenBanModal" disabled="@IsBanDisabled">
+                                    Ban
+                                </button>
+                                <button class="btn btn-autopick" type="button" @onclick="OpenAutopickModal">
+                                    @AutopickActionLabel
+                                </button>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(draftActionMessage))
+                            {
+                                <div class="alert alert-warning" role="alert">@draftActionMessage</div>
+                            }
+
+                            <div class="league-hub-turn">
+                                <span class="league-hub-meta__label">Turno actual</span>
+                                <span class="league-hub-meta__value">@CurrentPickUserLabel</span>
+                            </div>
+                        }
 
                         @if (raceDraft is null)
                         {
@@ -114,12 +149,20 @@ else
                                     {
                                         var userId = raceDraft.PickOrder[i];
                                         var isCurrent = i == raceDraft.CurrentPickIndex;
-                                        <li class="draft-order__item @(isCurrent ? "current" : string.Empty)">
+                                        var badges = GetPickBadges(i, isCurrent);
+                                        var isClickable = isCurrent && !IsPickDisabled;
+                                        <li class="draft-order__item @(isCurrent ? "current" : string.Empty) @(isClickable ? "draft-order__item--clickable" : string.Empty)"
+                                            @onclick="() => HandleDraftRowClickAsync(isClickable)">
                                             <span class="draft-order__position">@((i + 1).ToString())</span>
                                             <span class="draft-order__name">@GetMemberName(userId)</span>
-                                            @if (isCurrent)
+                                            @if (badges.Count > 0)
                                             {
-                                                <span class="draft-order__badge">Turno actual</span>
+                                                <div class="draft-order__badges">
+                                                    @foreach (var badge in badges)
+                                                    {
+                                                        <span class="@badge.CssClass">@badge.Label</span>
+                                                    }
+                                                </div>
                                             }
                                         </li>
                                     }
@@ -127,16 +170,18 @@ else
                             </div>
                         }
 
-                        @if (draftDeadline is not null)
+                        @if (league.BansEnabled)
                         {
-                            <div class="league-hub-deadlines">
-                                <div>
-                                    <span class="league-hub-meta__label">Deadline 1</span>
-                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.FirstHalfDeadline)</span>
-                                </div>
-                                <div>
-                                    <span class="league-hub-meta__label">Deadline 2</span>
-                                    <span class="league-hub-meta__value">@FormatDate(draftDeadline.SecondHalfDeadline)</span>
+                            <div class="league-hub-bans">
+                                <span class="league-hub-meta__label">Bans restantes</span>
+                                <div class="league-hub-bans__list">
+                                    @foreach (var entry in BansRemainingEntries)
+                                    {
+                                        <div class="league-hub-bans__item">
+                                            <span class="league-hub-bans__name">@entry.Label</span>
+                                            <span class="league-hub-bans__count">@entry.Remaining/@entry.Total</span>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         }
@@ -356,34 +401,233 @@ else
     </div>
 }
 
+@if (showPickModal)
+{
+    <div class="league-hub-modal" role="dialog" aria-modal="true" aria-labelledby="draft-pick-title">
+        <div class="league-hub-modal__backdrop" @onclick="ClosePickModal"></div>
+        <div class="league-hub-modal__content">
+            <div class="league-hub-modal__header">
+                <h2 id="draft-pick-title">Elegir piloto</h2>
+                <button type="button" class="league-hub-modal__close" @onclick="ClosePickModal" aria-label="Cerrar">
+                    X
+                </button>
+            </div>
+
+            @if (availablePickDrivers.Count == 0)
+            {
+                <p class="text-muted">No hay pilotos disponibles para pickear.</p>
+            }
+            else
+            {
+                <div class="league-hub-form">
+                    <label class="form-label" for="draft-pick-driver">Piloto</label>
+                    <select id="draft-pick-driver"
+                            class="form-select"
+                            value="@selectedPickDriverId"
+                            @onchange="HandlePickDriverChanged"
+                            disabled="@isSubmittingPick">
+                        <option value="">Selecciona un piloto</option>
+                        @foreach (var driver in availablePickDrivers)
+                        {
+                            <option value="@driver.Id">@GetDriverLabel(driver)</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="league-hub-modal__actions">
+                <button type="button" class="btn btn-outline-primary" @onclick="ClosePickModal" disabled="@isSubmittingPick">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmPickAsync" disabled="@IsConfirmPickDisabled">
+                    @(isSubmittingPick ? "Confirmando..." : "Confirmar pick")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showBanModal)
+{
+    <div class="league-hub-modal" role="dialog" aria-modal="true" aria-labelledby="draft-ban-title">
+        <div class="league-hub-modal__backdrop" @onclick="CloseBanModal"></div>
+        <div class="league-hub-modal__content">
+            <div class="league-hub-modal__header">
+                <h2 id="draft-ban-title">Confirmar ban</h2>
+                <button type="button" class="league-hub-modal__close" @onclick="CloseBanModal" aria-label="Cerrar">
+                    X
+                </button>
+            </div>
+
+            @if (lastPickInfo is null)
+            {
+                <p class="text-muted">No hay pick disponible para banear.</p>
+            }
+            else
+            {
+                <p>
+                    Vas a banear el pick de <strong>@lastPickInfo.Username</strong> con el piloto
+                    <strong>@lastPickInfo.DriverName</strong>.
+                </p>
+            }
+
+            <div class="league-hub-modal__actions">
+                <button type="button" class="btn btn-outline-primary" @onclick="CloseBanModal" disabled="@isSubmittingBan">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-outline-danger" @onclick="ConfirmBanAsync" disabled="@IsConfirmBanDisabled">
+                    @(isSubmittingBan ? "Baneando..." : "Confirmar ban")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showAutopickModal)
+{
+    <div class="league-hub-modal" role="dialog" aria-modal="true" aria-labelledby="draft-autopick-title">
+        <div class="league-hub-modal__backdrop" @onclick="CloseAutopickModal"></div>
+        <div class="league-hub-modal__content league-hub-modal__content--wide">
+            <div class="league-hub-modal__header">
+                <h2 id="draft-autopick-title">Configurar autopick</h2>
+                <button type="button" class="league-hub-modal__close" @onclick="CloseAutopickModal" aria-label="Cerrar">
+                    X
+                </button>
+            </div>
+
+            @if (isLoadingAutopick)
+            {
+                <p class="text-muted">Cargando autopick...</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrWhiteSpace(autopickMessage))
+                {
+                    <div class="alert alert-warning" role="alert">@autopickMessage</div>
+                }
+
+                <div class="autopick-grid">
+                    <div>
+                        <h3>Orden de preferencia</h3>
+                        @if (autopickDriverIds.Count == 0)
+                        {
+                            <p class="text-muted">Aun no hay pilotos en tu lista.</p>
+                        }
+                        else
+                        {
+                            <ol class="autopick-list">
+                                @for (var i = 0; i < autopickDriverIds.Count; i++)
+                                {
+                                    var driverId = autopickDriverIds[i];
+                                    var index = i;
+                                    <li class="autopick-list__item">
+                                        <span>@GetDriverName(driverId)</span>
+                                        <div class="autopick-list__actions">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => MoveAutopickDriver(index, -1)" disabled="@(index == 0)">
+                                                ↑
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => MoveAutopickDriver(index, 1)" disabled="@(index == autopickDriverIds.Count - 1)">
+                                                ↓
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAutopickDriver(index)">
+                                                Quitar
+                                            </button>
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </div>
+
+                    <div>
+                        <h3>Agregar piloto</h3>
+                        @if (autopickAvailableDrivers.Count == 0)
+                        {
+                            <p class="text-muted">No quedan pilotos disponibles para agregar.</p>
+                        }
+                        else
+                        {
+                            <div class="league-hub-form">
+                                <label class="form-label" for="autopick-add">Piloto</label>
+                                <select id="autopick-add"
+                                        class="form-select"
+                                        value="@autopickAddDriverId"
+                                        @onchange="HandleAutopickAddChanged"
+                                        disabled="@isSubmittingAutopick">
+                                    <option value="">Selecciona un piloto</option>
+                                    @foreach (var driver in autopickAvailableDrivers)
+                                    {
+                                        <option value="@driver.Id">@GetDriverLabel(driver)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary" @onclick="AddAutopickDriver" disabled="@(!autopickAddDriverId.HasValue || isSubmittingAutopick)">
+                                Agregar
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="league-hub-modal__actions">
+                    <button type="button" class="btn btn-outline-primary" @onclick="CloseAutopickModal" disabled="@isSubmittingAutopick">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveAutopickAsync" disabled="@isSubmittingAutopick">
+                        @(isSubmittingAutopick ? "Guardando..." : "Guardar autopick")
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public int LeagueId { get; set; }
 
     private bool isLoading = true;
     private bool isAuthorized;
+    private bool isSubmittingPick;
+    private bool isSubmittingBan;
+    private bool isSubmittingAutopick;
+    private bool isLoadingAutopick;
+    private bool showPickModal;
+    private bool showBanModal;
+    private bool showAutopickModal;
     private int userId;
     private string? errorMessage;
     private string? draftErrorMessage;
+    private string? draftActionMessage;
     private string? standingsErrorMessage;
     private string? historyErrorMessage;
+    private string? autopickMessage;
     private LeaguePublic? league;
     private Race? draftRace;
     private RaceDraft? raceDraft;
+    private DraftResponse? draftState;
     private DraftDeadline? draftDeadline;
+    private int? selectedPickDriverId;
+    private int? autopickAddDriverId;
     private readonly List<UserPublic> members = new();
     private readonly List<LeagueTeam> teams = new();
+    private readonly List<Driver> drivers = new();
     private readonly List<PlayerStanding> playerStandings = new();
     private readonly List<PlayerTeamStanding> teamStandings = new();
     private readonly List<PickHistory> pickHistory = new();
     private readonly List<PickHistory> emptyHistory = new();
     private readonly List<Race> historyRaces = new();
+    private readonly List<Race> allRaces = new();
     private readonly List<RacePickRow> racePickRows = new();
     private readonly Dictionary<int, List<PickHistory>> historyCache = new();
+    private readonly List<int> autopickDriverIds = new();
+    private readonly Dictionary<int, int> bansUsedByTeam = new();
     private int? selectedHistoryRound;
     private bool showTeamStandings;
     private HistoryMode historyMode = HistoryMode.Player;
     private LeagueTab activeTab = LeagueTab.Draft;
+    private PickInfo? lastPickInfo;
+    private bool hasAutopickSaved;
+    private bool autopickLoaded;
 
     protected override async Task OnInitializedAsync()
     {
@@ -435,8 +679,9 @@ else
         var currentRaceTask = ApiClient.GetAsync<Race>("races/current");
         var upcomingRacesTask = ApiClient.GetAsync<List<Race>>("races/upcoming");
         var allRacesTask = ApiClient.GetAsync<List<Race>>("races");
+        var driversTask = ApiClient.GetAsync<List<Driver>>("drivers");
 
-        var tasks = new List<Task> { membersTask, standingsTask, currentRaceTask, upcomingRacesTask, allRacesTask };
+        var tasks = new List<Task> { membersTask, standingsTask, currentRaceTask, upcomingRacesTask, allRacesTask, driversTask };
         if (teamsTask is not null)
         {
             tasks.Add(teamsTask);
@@ -457,7 +702,14 @@ else
         var allRacesResult = await allRacesTask;
         if (allRacesResult.Success && allRacesResult.Data is not null)
         {
+            allRaces.AddRange(allRacesResult.Data);
             InitializeHistoryRaces(allRacesResult.Data);
+        }
+
+        var driversResult = await driversTask;
+        if (driversResult.Success && driversResult.Data is not null)
+        {
+            drivers.AddRange(driversResult.Data.Where(driver => driver.Active));
         }
 
         if (teamsTask is not null)
@@ -507,6 +759,8 @@ else
             await LoadRaceHistoryAsync(selectedHistoryRound.Value);
         }
 
+        await LoadAutopickSummaryAsync();
+
         isLoading = false;
     }
 
@@ -517,6 +771,12 @@ else
         if (draftResult.Success && draftResult.Data is not null)
         {
             raceDraft = draftResult.Data;
+            NormalizeDraftLists();
+            draftState ??= new DraftResponse
+            {
+                CurrentPickIndex = raceDraft.CurrentPickIndex,
+                Status = raceDraft.Status
+            };
         }
         else
         {
@@ -527,6 +787,46 @@ else
         if (deadlineResult.Success && deadlineResult.Data is not null)
         {
             draftDeadline = deadlineResult.Data;
+        }
+
+        UpdateLastPickInfo();
+    }
+
+    private void NormalizeDraftLists()
+    {
+        if (raceDraft is null)
+        {
+            return;
+        }
+
+        var desiredCount = raceDraft.PickOrder.Count;
+        if (desiredCount == 0)
+        {
+            return;
+        }
+
+        if (raceDraft.PickedDriverIds.Count < desiredCount)
+        {
+            while (raceDraft.PickedDriverIds.Count < desiredCount)
+            {
+                raceDraft.PickedDriverIds.Add(null);
+            }
+        }
+        else if (raceDraft.PickedDriverIds.Count > desiredCount)
+        {
+            raceDraft.PickedDriverIds.RemoveRange(desiredCount, raceDraft.PickedDriverIds.Count - desiredCount);
+        }
+
+        if (raceDraft.BannedDriverIdsByPickIndex.Count < desiredCount)
+        {
+            while (raceDraft.BannedDriverIdsByPickIndex.Count < desiredCount)
+            {
+                raceDraft.BannedDriverIdsByPickIndex.Add(null);
+            }
+        }
+        else if (raceDraft.BannedDriverIdsByPickIndex.Count > desiredCount)
+        {
+            raceDraft.BannedDriverIdsByPickIndex.RemoveRange(desiredCount, raceDraft.BannedDriverIdsByPickIndex.Count - desiredCount);
         }
     }
 
@@ -553,6 +853,401 @@ else
             .OrderBy(race => race.Round)
             .ThenBy(race => race.RaceTime ?? DateTimeOffset.MaxValue)
             .FirstOrDefault();
+    }
+
+    private IReadOnlyList<Driver> availablePickDrivers
+        => GetAvailableDriversForPick();
+
+    private IReadOnlyList<Driver> autopickAvailableDrivers
+        => GetAutopickAvailableDrivers();
+
+    private int? CurrentPickUserId
+        => raceDraft is not null && raceDraft.PickOrder.Count > raceDraft.CurrentPickIndex && raceDraft.CurrentPickIndex >= 0
+            ? raceDraft.PickOrder[raceDraft.CurrentPickIndex]
+            : null;
+
+    private string CurrentPickUserLabel
+        => CurrentPickUserId.HasValue ? GetMemberName(CurrentPickUserId.Value) : "-";
+
+    private string LeagueOptionsLabel
+        => BuildOptionsLabel();
+
+    private string DraftProgressLabel
+        => BuildDraftProgressLabel();
+
+    private string AutopickActionLabel
+        => hasAutopickSaved ? "Editar Autopick" : "Crear Autopick";
+
+    private IReadOnlyList<BanRemainingEntry> BansRemainingEntries
+        => BuildBansRemainingEntries();
+
+    private int? LastPickUserId
+        => raceDraft is not null && raceDraft.CurrentPickIndex > 0
+            ? raceDraft.PickOrder[raceDraft.CurrentPickIndex - 1]
+            : null;
+
+    private int? LastPickDriverId
+        => GetLastPickDriverId();
+
+    private bool IsYourTurn
+        => CurrentPickUserId.HasValue && CurrentPickUserId.Value == userId;
+
+    private int BansLimit
+        => league?.TeamsEnabled == true ? 3 : 2;
+
+    private bool HasRemainingBans
+        => GetBansUsedForCurrentSide() < BansLimit;
+
+    private bool IsBanTargetSameTeam
+        => league?.TeamsEnabled == true
+            && LastPickUserId.HasValue
+            && IsSameTeam(userId, LastPickUserId.Value);
+
+    private bool CanBanByTurn
+    {
+        get
+        {
+            if (CurrentPickUserId is null)
+            {
+                return false;
+            }
+
+            if (league?.TeamsEnabled == true)
+            {
+                return CurrentPickUserId.Value == userId || IsSameTeam(userId, CurrentPickUserId.Value);
+            }
+
+            return CurrentPickUserId.Value == userId;
+        }
+    }
+
+    private async Task HandleDraftRowClickAsync(bool isClickable)
+    {
+        if (!isClickable)
+        {
+            return;
+        }
+
+        await OpenPickModal();
+    }
+
+    private bool IsPickDisabled
+        => !IsYourTurn || availablePickDrivers.Count == 0 || isSubmittingPick || raceDraft is null || draftRace is null;
+
+    private bool IsConfirmPickDisabled
+        => isSubmittingPick || selectedPickDriverId is null || availablePickDrivers.Count == 0;
+
+    private bool IsBanDisabled
+        => isSubmittingBan
+            || raceDraft is null
+            || raceDraft.CurrentPickIndex == 0
+            || lastPickInfo is null
+            || !HasRemainingBans
+            || IsBanTargetSameTeam
+            || !CanBanByTurn;
+
+    private bool IsConfirmBanDisabled
+        => isSubmittingBan || lastPickInfo is null;
+
+    private IReadOnlyList<Driver> GetAvailableDriversForPick()
+    {
+        if (drivers.Count == 0)
+        {
+            return Array.Empty<Driver>();
+        }
+
+        var pickedSet = new HashSet<int>(GetPickedDriverIds());
+        var bannedSet = new HashSet<int>(GetBannedDriverIds());
+
+        return drivers
+            .Where(driver => !pickedSet.Contains(driver.Id) && !bannedSet.Contains(driver.Id))
+            .OrderBy(driver => driver.LastName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(driver => driver.FirstName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<Driver> GetAutopickAvailableDrivers()
+    {
+        if (drivers.Count == 0)
+        {
+            return Array.Empty<Driver>();
+        }
+
+        var selected = autopickDriverIds.Count > 0 ? new HashSet<int>(autopickDriverIds) : new HashSet<int>();
+        return drivers
+            .Where(driver => !selected.Contains(driver.Id))
+            .OrderBy(driver => driver.LastName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(driver => driver.FirstName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string GetDriverLabel(Driver driver)
+    {
+        return $"{driver.FirstName} {driver.LastName} · {driver.DriverCode}";
+    }
+
+    private string GetDriverName(int driverId)
+    {
+        var driver = drivers.FirstOrDefault(item => item.Id == driverId);
+        return driver is null ? $"#{driverId}" : $"{driver.FirstName} {driver.LastName}";
+    }
+
+    private string BuildOptionsLabel()
+    {
+        if (league is null)
+        {
+            return "Sin opciones especiales";
+        }
+
+        var options = new List<string>();
+        if (league.TeamsEnabled)
+        {
+            options.Add("Teams");
+        }
+
+        if (league.BansEnabled)
+        {
+            options.Add("Bans");
+        }
+
+        if (league.MirrorPicksEnabled)
+        {
+            options.Add("Mirror");
+        }
+
+        return options.Count == 0 ? "Sin opciones especiales" : string.Join(" · ", options);
+    }
+
+    private string BuildDraftProgressLabel()
+    {
+        if (draftRace is null || allRaces.Count == 0)
+        {
+            return "-";
+        }
+
+        var initialRound = league?.InitialRaceRound ?? 1;
+        var totalDrafts = allRaces.Count(race => race.Round >= initialRound);
+        var currentDraft = allRaces.Count(race => race.Round >= initialRound && race.Round <= draftRace.Round);
+
+        if (totalDrafts == 0)
+        {
+            return "-";
+        }
+
+        return $"Draft {currentDraft}/{totalDrafts}";
+    }
+
+    private IReadOnlyList<PickBadge> GetPickBadges(int index, bool isCurrent)
+    {
+        var pickDriverId = raceDraft?.PickedDriverIds.Count > index ? raceDraft.PickedDriverIds[index] : null;
+        var bannedDriverId = GetBannedDriverForIndex(index);
+        var badges = new List<PickBadge>(2);
+
+        if (bannedDriverId.HasValue)
+        {
+            badges.Add(new PickBadge(GetDriverName(bannedDriverId.Value), "draft-order__badge draft-order__badge--banned"));
+        }
+
+        if (pickDriverId.HasValue)
+        {
+            badges.Add(new PickBadge(GetDriverName(pickDriverId.Value), "draft-order__badge"));
+        }
+        else if (isCurrent)
+        {
+            badges.Add(new PickBadge("Turno actual", "draft-order__badge"));
+        }
+
+        return badges;
+    }
+
+    private int? GetBannedDriverForIndex(int index)
+    {
+        if (raceDraft?.BannedDriverIdsByPickIndex.Count > index)
+        {
+            return raceDraft.BannedDriverIdsByPickIndex[index];
+        }
+
+        return null;
+    }
+
+    private IReadOnlyList<int> GetPickedDriverIds()
+    {
+        if (raceDraft?.PickedDriverIds.Count > 0)
+        {
+            return raceDraft.PickedDriverIds
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+        }
+
+        return draftState?.PickedDriverIds ?? new List<int>();
+    }
+
+    private IReadOnlyList<int> GetBannedDriverIds()
+    {
+        if (raceDraft?.BannedDriverIds.Count > 0)
+        {
+            return raceDraft.BannedDriverIds;
+        }
+
+        return draftState?.BannedDriverIds ?? new List<int>();
+    }
+
+    private int? GetLastPickDriverId()
+    {
+        if (raceDraft is not null && raceDraft.CurrentPickIndex > 0 && raceDraft.PickedDriverIds.Count > raceDraft.CurrentPickIndex - 1)
+        {
+            return raceDraft.PickedDriverIds[raceDraft.CurrentPickIndex - 1];
+        }
+
+        if (draftState?.PickedDriverIds.Count > 0)
+        {
+            return draftState.PickedDriverIds[^1];
+        }
+
+        return null;
+    }
+
+    private int GetBansUsedForCurrentSide()
+    {
+        if (league?.BansEnabled != true)
+        {
+            return 0;
+        }
+
+        if (league.TeamsEnabled)
+        {
+            var teamId = GetUserTeamId(userId);
+            return teamId.HasValue ? GetBansUsedForTeam(teamId.Value) : 0;
+        }
+
+        return GetBansUsedForUser(userId);
+    }
+
+    private IReadOnlyList<BanRemainingEntry> BuildBansRemainingEntries()
+    {
+        if (league?.BansEnabled != true)
+        {
+            return Array.Empty<BanRemainingEntry>();
+        }
+
+        var limit = BansLimit;
+        var usedByUser = BuildBansUsedByUser();
+        var entries = new List<BanRemainingEntry>();
+
+        if (league.TeamsEnabled && teams.Count > 0)
+        {
+            foreach (var team in teams)
+            {
+                var used = usedByUser.Count == 0 && bansUsedByTeam.TryGetValue(team.Id, out var localUsed)
+                    ? localUsed
+                    : team.Members.Sum(member => usedByUser.TryGetValue(member.User.Id, out var count) ? count : 0);
+                var remaining = Math.Max(limit - used, 0);
+                entries.Add(new BanRemainingEntry(team.Name, remaining, limit));
+            }
+
+            return entries;
+        }
+
+        foreach (var member in members)
+        {
+            var used = usedByUser.Count == 0 && bansUsedByTeam.TryGetValue(member.Id, out var localUsed)
+                ? localUsed
+                : (usedByUser.TryGetValue(member.Id, out var count) ? count : 0);
+            var remaining = Math.Max(limit - used, 0);
+            entries.Add(new BanRemainingEntry(member.Username, remaining, limit));
+        }
+
+        return entries;
+    }
+
+    private Dictionary<int, int> BuildBansUsedByUser()
+    {
+        var counts = new Dictionary<int, int>();
+        if (raceDraft is null || raceDraft.PickOrder.Count == 0)
+        {
+            return counts;
+        }
+
+        var limit = Math.Min(raceDraft.PickOrder.Count, raceDraft.BannedDriverIdsByPickIndex.Count);
+        for (var i = 0; i < limit; i++)
+        {
+            if (!raceDraft.BannedDriverIdsByPickIndex[i].HasValue)
+            {
+                continue;
+            }
+
+            var banningUserId = raceDraft.PickOrder[i];
+            counts[banningUserId] = counts.TryGetValue(banningUserId, out var current) ? current + 1 : 1;
+        }
+
+        return counts;
+    }
+
+    private int GetBansUsedForUser(int targetUserId)
+    {
+        var counts = BuildBansUsedByUser();
+        if (counts.Count > 0)
+        {
+            return counts.TryGetValue(targetUserId, out var count) ? count : 0;
+        }
+
+        return bansUsedByTeam.TryGetValue(targetUserId, out var localCount) ? localCount : 0;
+    }
+
+    private int GetBansUsedForTeam(int teamId)
+    {
+        var counts = BuildBansUsedByUser();
+        if (counts.Count > 0)
+        {
+            var team = teams.FirstOrDefault(item => item.Id == teamId);
+            if (team is null)
+            {
+                return 0;
+            }
+
+            return team.Members.Sum(member => counts.TryGetValue(member.User.Id, out var count) ? count : 0);
+        }
+
+        return bansUsedByTeam.TryGetValue(teamId, out var localCount) ? localCount : 0;
+    }
+
+    private void UpdateLastPickInfo()
+    {
+        lastPickInfo = null;
+
+        if (LastPickUserId is null || LastPickDriverId is null)
+        {
+            return;
+        }
+
+        lastPickInfo = new PickInfo
+        {
+            UserId = LastPickUserId.Value,
+            Username = GetMemberName(LastPickUserId.Value),
+            DriverId = LastPickDriverId.Value,
+            DriverName = GetDriverName(LastPickDriverId.Value)
+        };
+    }
+
+    private int? GetUserTeamId(int userId)
+    {
+        foreach (var team in teams)
+        {
+            if (team.Members.Any(member => member.User.Id == userId))
+            {
+                return team.Id;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsSameTeam(int userA, int userB)
+    {
+        var teamA = GetUserTeamId(userA);
+        var teamB = GetUserTeamId(userB);
+        return teamA.HasValue && teamB.HasValue && teamA.Value == teamB.Value;
     }
 
     private string GetMemberName(int userId)
@@ -666,6 +1361,352 @@ else
         }
     }
 
+    private async Task OpenPickModal()
+    {
+        if (IsPickDisabled)
+        {
+            return;
+        }
+
+        draftActionMessage = null;
+        selectedPickDriverId = null;
+        if (draftRace is not null)
+        {
+            await LoadDraftAsync(draftRace.Id);
+        }
+        showPickModal = true;
+    }
+
+    private void ClosePickModal()
+    {
+        if (isSubmittingPick)
+        {
+            return;
+        }
+
+        showPickModal = false;
+        selectedPickDriverId = null;
+    }
+
+    private void HandlePickDriverChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var driverId))
+        {
+            selectedPickDriverId = driverId;
+        }
+        else
+        {
+            selectedPickDriverId = null;
+        }
+    }
+
+    private async Task ConfirmPickAsync()
+    {
+        if (draftRace is null || selectedPickDriverId is null)
+        {
+            return;
+        }
+
+        isSubmittingPick = true;
+        draftActionMessage = null;
+
+        var request = BuildPickPayload(selectedPickDriverId.Value);
+        var result = await ApiClient.PostAsync<Dictionary<string, int>, DraftResponse>($"leagues/{LeagueId}/draft/{draftRace.Id}/pick", request, auth: true);
+
+        isSubmittingPick = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            ApplyDraftResponse(result.Data, pickedDriverId: selectedPickDriverId.Value);
+            showPickModal = false;
+            selectedPickDriverId = null;
+            if (draftRace is not null)
+            {
+                await LoadDraftAsync(draftRace.Id);
+            }
+            return;
+        }
+
+        draftActionMessage = result.ErrorMessage ?? "No se pudo realizar el pick.";
+    }
+
+    private async Task OpenBanModal()
+    {
+        if (IsBanDisabled)
+        {
+            return;
+        }
+
+        draftActionMessage = null;
+        if (draftRace is not null)
+        {
+            await LoadDraftAsync(draftRace.Id);
+        }
+        showBanModal = true;
+    }
+
+    private void CloseBanModal()
+    {
+        if (isSubmittingBan)
+        {
+            return;
+        }
+
+        showBanModal = false;
+    }
+
+    private async Task ConfirmBanAsync()
+    {
+        if (draftRace is null || lastPickInfo is null)
+        {
+            return;
+        }
+
+        isSubmittingBan = true;
+        draftActionMessage = null;
+
+        var request = BuildBanPayload(lastPickInfo.UserId, lastPickInfo.DriverId);
+        var result = await ApiClient.PostAsync<Dictionary<string, int>, DraftResponse>($"leagues/{LeagueId}/draft/{draftRace.Id}/ban", request, auth: true);
+
+        isSubmittingBan = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            TrackBanUsage();
+            ApplyDraftResponse(result.Data, bannedDriverId: lastPickInfo.DriverId);
+            showBanModal = false;
+            if (draftRace is not null)
+            {
+                await LoadDraftAsync(draftRace.Id);
+            }
+            return;
+        }
+
+        draftActionMessage = result.ErrorMessage ?? "No se pudo completar el ban.";
+    }
+
+    private async Task OpenAutopickModal()
+    {
+        autopickMessage = null;
+        showAutopickModal = true;
+        if (!autopickLoaded)
+        {
+            await LoadAutopickAsync();
+        }
+    }
+
+    private void CloseAutopickModal()
+    {
+        if (isSubmittingAutopick)
+        {
+            return;
+        }
+
+        showAutopickModal = false;
+    }
+
+    private async Task LoadAutopickAsync()
+    {
+        if (league is null)
+        {
+            return;
+        }
+
+        isLoadingAutopick = true;
+        autopickMessage = null;
+        autopickDriverIds.Clear();
+
+        var result = await ApiClient.GetAsync<AutopickSettings>($"leagues/{LeagueId}/autopick", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            autopickDriverIds.AddRange(result.Data.DriverIds.Distinct());
+            hasAutopickSaved = autopickDriverIds.Count > 0;
+        }
+        else if (!result.Success)
+        {
+            autopickMessage = result.ErrorMessage ?? "No se pudo cargar el autopick.";
+        }
+
+        autopickAddDriverId = autopickAvailableDrivers.FirstOrDefault()?.Id;
+        isLoadingAutopick = false;
+        autopickLoaded = true;
+    }
+
+    private async Task LoadAutopickSummaryAsync()
+    {
+        if (autopickLoaded || league is null)
+        {
+            return;
+        }
+
+        var result = await ApiClient.GetAsync<AutopickSettings>($"leagues/{LeagueId}/autopick", auth: true);
+        if (result.Success && result.Data is not null)
+        {
+            autopickDriverIds.Clear();
+            autopickDriverIds.AddRange(result.Data.DriverIds.Distinct());
+            hasAutopickSaved = autopickDriverIds.Count > 0;
+            autopickLoaded = true;
+        }
+    }
+
+    private void HandleAutopickAddChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var driverId))
+        {
+            autopickAddDriverId = driverId;
+        }
+        else
+        {
+            autopickAddDriverId = null;
+        }
+    }
+
+    private void AddAutopickDriver()
+    {
+        if (!autopickAddDriverId.HasValue)
+        {
+            return;
+        }
+
+        var driverId = autopickAddDriverId.Value;
+        if (!autopickDriverIds.Contains(driverId))
+        {
+            autopickDriverIds.Add(driverId);
+        }
+
+        autopickAddDriverId = autopickAvailableDrivers.FirstOrDefault()?.Id;
+    }
+
+    private void MoveAutopickDriver(int index, int direction)
+    {
+        var targetIndex = index + direction;
+        if (index < 0 || index >= autopickDriverIds.Count || targetIndex < 0 || targetIndex >= autopickDriverIds.Count)
+        {
+            return;
+        }
+
+        (autopickDriverIds[index], autopickDriverIds[targetIndex]) = (autopickDriverIds[targetIndex], autopickDriverIds[index]);
+    }
+
+    private void RemoveAutopickDriver(int index)
+    {
+        if (index < 0 || index >= autopickDriverIds.Count)
+        {
+            return;
+        }
+
+        autopickDriverIds.RemoveAt(index);
+        autopickAddDriverId ??= autopickAvailableDrivers.FirstOrDefault()?.Id;
+    }
+
+    private async Task SaveAutopickAsync()
+    {
+        isSubmittingAutopick = true;
+        autopickMessage = null;
+
+        var request = new AutopickSettings
+        {
+            DriverIds = autopickDriverIds.Distinct().ToList()
+        };
+
+        var result = await ApiClient.PutAsync<AutopickSettings, AutopickSettings>($"leagues/{LeagueId}/autopick", request, auth: true);
+
+        isSubmittingAutopick = false;
+
+        if (result.Success)
+        {
+            hasAutopickSaved = autopickDriverIds.Count > 0;
+            showAutopickModal = false;
+            return;
+        }
+
+        autopickMessage = result.ErrorMessage ?? "No se pudo guardar el autopick.";
+    }
+
+    private void ApplyDraftResponse(DraftResponse response, int? pickedDriverId = null, int? bannedDriverId = null)
+    {
+        draftState = response;
+        if (raceDraft is not null)
+        {
+            raceDraft.CurrentPickIndex = response.CurrentPickIndex;
+            raceDraft.Status = response.Status;
+
+            if (pickedDriverId.HasValue && raceDraft.PickedDriverIds.Count == raceDraft.PickOrder.Count)
+            {
+                var pickIndex = Math.Max(0, response.CurrentPickIndex - 1);
+                if (pickIndex < raceDraft.PickedDriverIds.Count)
+                {
+                    raceDraft.PickedDriverIds[pickIndex] = pickedDriverId.Value;
+                }
+            }
+
+            if (bannedDriverId.HasValue && raceDraft.PickedDriverIds.Count == raceDraft.PickOrder.Count)
+            {
+                var banIndex = response.CurrentPickIndex;
+                if (banIndex >= 0 && banIndex < raceDraft.PickedDriverIds.Count)
+                {
+                    raceDraft.PickedDriverIds[banIndex] = null;
+                }
+
+                if (!raceDraft.BannedDriverIds.Contains(bannedDriverId.Value))
+                {
+                    raceDraft.BannedDriverIds.Add(bannedDriverId.Value);
+                }
+
+                if (raceDraft.BannedDriverIdsByPickIndex.Count == raceDraft.PickOrder.Count)
+                {
+                    raceDraft.BannedDriverIdsByPickIndex[banIndex] = bannedDriverId.Value;
+                }
+            }
+        }
+
+        UpdateLastPickInfo();
+    }
+
+    private void TrackBanUsage()
+    {
+        if (league?.BansEnabled != true)
+        {
+            return;
+        }
+
+        if (league.TeamsEnabled)
+        {
+            var teamId = GetUserTeamId(userId);
+            if (teamId.HasValue)
+            {
+                bansUsedByTeam[teamId.Value] = bansUsedByTeam.TryGetValue(teamId.Value, out var count) ? count + 1 : 1;
+            }
+        }
+        else
+        {
+            bansUsedByTeam[userId] = bansUsedByTeam.TryGetValue(userId, out var count) ? count + 1 : 1;
+        }
+    }
+
+    private static Dictionary<string, int> BuildPickPayload(int driverId)
+    {
+        return new Dictionary<string, int>
+        {
+            ["driverID"] = driverId,
+            ["driverId"] = driverId,
+            ["driver_id"] = driverId
+        };
+    }
+
+    private static Dictionary<string, int> BuildBanPayload(int targetUserId, int driverId)
+    {
+        return new Dictionary<string, int>
+        {
+            ["targetUserID"] = targetUserId,
+            ["targetUserId"] = targetUserId,
+            ["target_user_id"] = targetUserId,
+            ["driverID"] = driverId,
+            ["driverId"] = driverId,
+            ["driver_id"] = driverId
+        };
+    }
+
     private void SetTab(LeagueTab tab)
     {
         activeTab = tab;
@@ -744,11 +1785,23 @@ else
         Race
     }
 
+    private sealed record PickBadge(string Label, string CssClass);
+
+    private sealed record BanRemainingEntry(string Label, int Remaining, int Total);
+
     private sealed class RacePickRow
     {
         public string Username { get; set; } = string.Empty;
         public int PickPosition { get; set; }
         public string DriverName { get; set; } = string.Empty;
         public double Points { get; set; }
+    }
+
+    private sealed class PickInfo
+    {
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public int DriverId { get; set; }
+        public string DriverName { get; set; } = string.Empty;
     }
 }

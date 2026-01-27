@@ -12,6 +12,15 @@ public sealed class RaceDraft
 
     public List<int> PickOrder { get; set; } = new();
 
+    [JsonPropertyName("pickedDriverIDs")]
+    public List<int?> PickedDriverIds { get; set; } = new();
+
+    [JsonPropertyName("bannedDriverIDs")]
+    public List<int> BannedDriverIds { get; set; } = new();
+
+    [JsonPropertyName("bannedDriverIDsByPickIndex")]
+    public List<int?> BannedDriverIdsByPickIndex { get; set; } = new();
+
     public int CurrentPickIndex { get; set; }
 
     [JsonPropertyName("mirrorPicks")]
