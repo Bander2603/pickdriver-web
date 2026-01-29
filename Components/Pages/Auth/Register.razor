@@ -1,7 +1,12 @@
 ﻿@page "/register"
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.Extensions.Options
+@implements IAsyncDisposable
 @inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IOptions<GoogleAuthOptions> GoogleOptions
 
 <PageTitle>Crear cuenta</PageTitle>
 
@@ -15,18 +20,10 @@
 @if (isSuccess)
 {
     <div class="alert alert-success" role="alert">
-        Registro completado. Revisa tu email para verificar la cuenta antes de iniciar sesion.
+        Registro completado. Ya puedes iniciar sesion.
     </div>
 
-    if (!string.IsNullOrWhiteSpace(verificationToken))
-    {
-        <div class="alert alert-secondary" role="alert">
-            Token de verificacion (solo entornos no productivos): <strong>@verificationToken</strong>
-        </div>
-    }
-
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-primary" href="verify-email">Verificar email</a>
+    <div class="d-flex gap-2 mt-3">
         <a class="btn btn-primary" href="login">Iniciar sesion</a>
     </div>
 }
@@ -55,15 +52,47 @@ else
         </div>
 
         <div class="mb-3">
+            <label class="form-label" for="register-invite">Codigo de invitacion (solo registro con email)</label>
+            <InputText id="register-invite" class="form-control" autocomplete="off" @bind-Value="model.InviteCode" />
+            <ValidationMessage For="() => model.InviteCode" />
+        </div>
+
+        <div class="mb-3">
             <label class="form-label" for="register-confirm">Confirmar password</label>
             <InputText id="register-confirm" class="form-control" type="password" autocomplete="new-password" @bind-Value="model.ConfirmPassword" />
             <ValidationMessage For="() => model.ConfirmPassword" />
         </div>
 
-        <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
-            @(isSubmitting ? "Creando..." : "Crear cuenta")
-        </button>
+        <div class="auth-actions">
+            <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
+                @(isSubmitting ? "Creando..." : "Registrarme con codigo")
+            </button>
+        </div>
     </EditForm>
+
+    <div class="auth-divider">o</div>
+
+    <div class="google-auth">
+        @if (IsGoogleEnabled)
+        {
+            <div class="google-auth__wrap">
+                <div id="@GoogleButtonId"></div>
+            </div>
+        }
+        else
+        {
+            <button class="btn btn-outline-light" type="button" disabled>
+                Registrarme con Google
+            </button>
+        }
+    </div>
+
+    @if (!IsGoogleEnabled)
+    {
+        <small class="text-muted d-block mt-2">
+            Login con Google no esta configurado.
+        </small>
+    }
 }
 
 @code {
@@ -71,7 +100,10 @@ else
     private bool isSubmitting;
     private bool isSuccess;
     private string? errorMessage;
-    private string? verificationToken;
+    private DotNetObjectReference<Register>? googleRef;
+
+    private const string GoogleButtonId = "google-register-button";
+    private bool IsGoogleEnabled => !string.IsNullOrWhiteSpace(GoogleOptions.Value.ClientId);
 
     private async Task HandleRegister()
     {
@@ -82,7 +114,8 @@ else
         {
             Username = model.Username.Trim(),
             Email = model.Email.Trim(),
-            Password = model.Password
+            Password = model.Password,
+            InviteCode = model.InviteCode.Trim()
         });
 
         isSubmitting = false;
@@ -90,7 +123,6 @@ else
         if (result.Success && result.Data is not null)
         {
             isSuccess = true;
-            verificationToken = result.Data.VerificationToken;
             return;
         }
 
@@ -111,7 +143,55 @@ else
         [MinLength(8, ErrorMessage = "La password debe tener al menos 8 caracteres.")]
         public string Password { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "El codigo de invitacion es obligatorio.")]
+        public string InviteCode { get; set; } = string.Empty;
+
         [Compare(nameof(Password), ErrorMessage = "Las passwords no coinciden.")]
         public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && IsGoogleEnabled)
+        {
+            googleRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("pickdriverGoogleAuth.initialize", GoogleOptions.Value.ClientId, googleRef);
+            await JSRuntime.InvokeVoidAsync("pickdriverGoogleAuth.renderButton", GoogleButtonId, new
+            {
+                theme = "outline",
+                size = "large",
+                text = "signup_with",
+                shape = "pill"
+            });
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnGoogleCredential(string idToken)
+    {
+        errorMessage = null;
+
+        var result = await AuthService.GoogleLoginAsync(new GoogleAuthRequest
+        {
+            IdToken = idToken
+        });
+
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        errorMessage = result.ErrorMessage ?? "No se pudo registrarte con Google.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (googleRef is not null)
+        {
+            googleRef.Dispose();
+        }
+
+        await Task.CompletedTask;
     }
 }

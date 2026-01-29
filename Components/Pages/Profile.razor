@@ -30,15 +30,11 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
 
         <dt class="col-sm-3">Email</dt>
         <dd class="col-sm-9">@profile.Email</dd>
-
-        <dt class="col-sm-3">Email verificado</dt>
-        <dd class="col-sm-9">@(profile.EmailVerified ? "Si" : "No")</dd>
     </dl>
 
     <div class="mt-4">
         <h2 class="h5">Acciones</h2>
         <div class="d-flex flex-wrap gap-2">
-            <NavLink class="btn btn-outline-primary" href="verify-email">Verificar email</NavLink>
             <button class="btn btn-outline-secondary" type="button" @onclick="LogoutAsync">Cerrar sesion</button>
         </div>
     </div>

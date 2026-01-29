@@ -11,7 +11,6 @@
 - JWT HS256
 - Header: Authorization: Bearer <token>
 - Expiracion: JWT_EXPIRES_IN_SECONDS (default 604800)
-- Login requiere email verificado
 
 ## Errores
 - Formato (Vapor): { "error": true, "reason": "..." }
@@ -28,13 +27,14 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ## Flujo de autenticacion recomendado
-1) POST /api/auth/register
-2) POST /api/auth/verify-email (token recibido por email)
-3) POST /api/auth/login -> token JWT
-4) Enviar token en Authorization para el resto de endpoints protegidos
+1) POST /api/auth/register (requiere inviteCode)
+2) POST /api/auth/login -> token JWT
+3) Enviar token en Authorization para el resto de endpoints protegidos
+
+Alternativa:
+- POST /api/auth/google (login/registro con Google; no requiere inviteCode)
 
 Notas:
-- El login falla si el email no esta verificado.
 - No hay refresh token; cuando expira el JWT, se re-login.
 
 ## Validaciones y reglas de negocio clave
@@ -43,7 +43,10 @@ Auth:
 - email: max 100, validacion por regex, se normaliza a lowercase
 - password: minimo 8 caracteres
 - update password: no puede ser igual a la actual
-- resend verification: en produccion se limita por EMAIL_VERIFICATION_RESEND_INTERVAL_SECONDS
+- register con email/password requiere inviteCode (codigo de invitacion)
+- si INVITE_CODE esta configurado en el backend, solo ese codigo es valido
+- si INVITE_CODE no existe, se validan codigos en tabla `invite_codes` (no usados)
+- Google auth: requiere GOOGLE_CLIENT_ID en el backend
 
 Ligas y equipos:
 - Crear liga requiere temporada activa.
@@ -74,18 +77,15 @@ Notificaciones:
 
 ### Auth
 - POST /api/auth/register
-  - Req: { "username": "user", "email": "a@b.com", "password": "..." }
-  - Res: { "user": UserPublic, "verificationRequired": true, "verificationToken": "..."? }
-  - Nota: verificationToken solo en no-produccion.
+  - Req: { "username": "user", "email": "a@b.com", "password": "...", "inviteCode": "INVITE" }
+  - Res: { "user": UserPublic }
 - POST /api/auth/login
   - Req: { "email": "a@b.com", "password": "..." }
   - Res: { "user": UserPublic, "token": "..." }
-- POST /api/auth/verify-email
-  - Req: { "token": "..." }
-  - Res: { "verified": true }
-- POST /api/auth/resend-verification
-  - Req: { "email": "a@b.com" }
-  - Res: { "message": "...", "verificationToken": "..."? }
+- POST /api/auth/google
+  - Req: { "idToken": "...", "inviteCode": "INVITE"? }
+  - Res: { "user": UserPublic, "token": "..." }
+  - Nota: inviteCode es opcional (Google no requiere invitacion).
 - GET /api/auth/profile (auth)
   - Res: UserPublic
 - PUT /api/auth/password (auth)

@@ -1,0 +1,36 @@
+.auth-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0 1rem;
+    color: var(--pd-muted);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--pd-border);
+}
+
+.google-auth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.google-auth__wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}

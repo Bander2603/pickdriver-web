@@ -18,6 +18,16 @@ builder.Services.AddScoped<PickDriverAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<PickDriverAuthStateProvider>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection("Api"));
+builder.Services.Configure<GoogleAuthOptions>(options =>
+{
+    var clientId = builder.Configuration["GoogleAuth:ClientId"];
+    if (string.IsNullOrWhiteSpace(clientId))
+    {
+        clientId = builder.Configuration["GOOGLE_CLIENT_ID"];
+    }
+
+    options.ClientId = clientId ?? string.Empty;
+});
 builder.Services.AddHttpClient<ApiClient>((sp, client) =>
 {
     var options = sp.GetRequiredService<IOptions<ApiOptions>>().Value;
@@ -31,6 +41,13 @@ builder.Services.AddHttpClient<ApiClient>((sp, client) =>
 });
 
 var app = builder.Build();
+
+var googleClientId = app.Configuration["GoogleAuth:ClientId"];
+if (string.IsNullOrWhiteSpace(googleClientId))
+{
+    googleClientId = app.Configuration["GOOGLE_CLIENT_ID"];
+}
+app.Logger.LogInformation("GoogleAuth ClientId configured: {Configured}", !string.IsNullOrWhiteSpace(googleClientId));
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

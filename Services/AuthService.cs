@@ -35,16 +35,23 @@ public sealed class AuthService
         return result;
     }
 
-    public Task<ApiResult<VerifyEmailResponse>> VerifyEmailAsync(string token)
-        => _apiClient.PostAsync<VerifyEmailRequest, VerifyEmailResponse>(
-            "auth/verify-email",
-            new VerifyEmailRequest { Token = token });
+    public async Task<ApiResult<LoginResponse>> GoogleLoginAsync(GoogleAuthRequest request)
+    {
+        var result = await _apiClient.PostAsync<GoogleAuthRequest, LoginResponse>("auth/google", request);
+        if (result.Success && result.Data is not null)
+        {
+            var session = new AuthSession
+            {
+                Token = result.Data.Token,
+                User = result.Data.User,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
 
-    public Task<ApiResult<ResendVerificationResponse>> ResendVerificationAsync(string email)
-        => _apiClient.PostAsync<ResendVerificationRequest, ResendVerificationResponse>(
-            "auth/resend-verification",
-            new ResendVerificationRequest { Email = email });
+            await _authStateProvider.SetSessionAsync(session);
+        }
+
+        return result;
+    }
 
     public Task LogoutAsync() => _authStateProvider.SetSessionAsync(null);
 }
-

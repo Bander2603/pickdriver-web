@@ -26,14 +26,6 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Auth/Login.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BdXRoL0xvZ2luLnJhem9y
-build_metadata.AdditionalFiles.CssScope = 
-
-[/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Auth/Register.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BdXRoL1JlZ2lzdGVyLnJhem9y
-build_metadata.AdditionalFiles.CssScope = 
-
 [/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Auth/VerifyEmail.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BdXRoL1ZlcmlmeUVtYWlsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -85,6 +77,14 @@ build_metadata.AdditionalFiles.CssScope = b-t8ypt67ruk
 [/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Layout/ReconnectModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9MYXlvdXQvUmVjb25uZWN0TW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-9hjf13hosc
+
+[/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Auth/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BdXRoL0xvZ2luLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-ufrmexqymt
+
+[/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Auth/Register.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BdXRoL1JlZ2lzdGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-ckoaib4nc6
 
 [/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Dashboard.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9EYXNoYm9hcmQucmF6b3I=
