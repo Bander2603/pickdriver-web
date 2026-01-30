@@ -1,11 +1,12 @@
 ﻿@page "/profile"
+@using System.ComponentModel.DataAnnotations
 @inject ApiClient ApiClient
 @inject AuthService AuthService
 @inject AuthSessionStore AuthSessionStore
-@inject AuthenticationStateProvider AuthStateProvider
+@inject PickDriverAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
-<PageTitle>Perfil</PageTitle>
+<PageTitle>Pick Driver</PageTitle>
 
 <h1>Perfil</h1>
 
@@ -33,6 +34,36 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
     </dl>
 
     <div class="mt-4">
+        <h2 class="h5">Cambiar nombre de usuario</h2>
+
+        @if (!string.IsNullOrWhiteSpace(usernameUpdateError))
+        {
+            <div class="alert alert-warning" role="alert">@usernameUpdateError</div>
+        }
+        else if (!string.IsNullOrWhiteSpace(usernameUpdateSuccess))
+        {
+            <div class="alert alert-success" role="alert">@usernameUpdateSuccess</div>
+        }
+
+        <EditForm Model="usernameModel" OnValidSubmit="HandleUsernameUpdateAsync">
+            <DataAnnotationsValidator />
+
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-6">
+                    <label class="form-label" for="profile-username">Usuario</label>
+                    <InputText id="profile-username" class="form-control" autocomplete="username" maxlength="20" @bind-Value="usernameModel.Username" />
+                    <ValidationMessage For="() => usernameModel.Username" />
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button class="btn btn-primary" type="submit" disabled="@isUpdatingUsername">
+                        @(isUpdatingUsername ? "Guardando..." : "Guardar")
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="mt-4">
         <h2 class="h5">Acciones</h2>
         <div class="d-flex flex-wrap gap-2">
             <button class="btn btn-outline-secondary" type="button" @onclick="LogoutAsync">Cerrar sesion</button>
@@ -45,6 +76,10 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
     private bool isAuthorized;
     private string? errorMessage;
     private UserPublic? profile;
+    private readonly UpdateUsernameModel usernameModel = new();
+    private bool isUpdatingUsername;
+    private string? usernameUpdateError;
+    private string? usernameUpdateSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,6 +105,11 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
             errorMessage = result.ErrorMessage ?? "No se pudo cargar el perfil.";
         }
 
+        if (profile is not null)
+        {
+            usernameModel.Username = profile.Username;
+        }
+
         isLoading = false;
     }
 
@@ -85,5 +125,63 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
     {
         await AuthService.LogoutAsync();
         NavigationManager.NavigateTo("/");
+    }
+
+    private async Task HandleUsernameUpdateAsync()
+    {
+        if (profile is null)
+        {
+            return;
+        }
+
+        usernameUpdateError = null;
+        usernameUpdateSuccess = null;
+        isUpdatingUsername = true;
+
+        var updatedUsername = usernameModel.Username.Trim();
+        var result = await ApiClient.PutAsync<UpdateUsernameRequest, UserPublic>("auth/username", new UpdateUsernameRequest
+        {
+            Username = updatedUsername
+        }, auth: true);
+
+        isUpdatingUsername = false;
+
+        if (!result.Success)
+        {
+            usernameUpdateError = result.ErrorMessage ?? "No se pudo actualizar el usuario.";
+            return;
+        }
+
+        var updatedProfile = result.Data ?? profile;
+        if (result.Data is null)
+        {
+            updatedProfile.Username = updatedUsername;
+        }
+
+        profile = updatedProfile;
+        usernameModel.Username = updatedProfile.Username;
+
+        await UpdateSessionAsync(updatedProfile);
+        usernameUpdateSuccess = "Nombre de usuario actualizado.";
+    }
+
+    private async Task UpdateSessionAsync(UserPublic updatedProfile)
+    {
+        var session = await AuthSessionStore.GetAsync();
+        if (session is null)
+        {
+            return;
+        }
+
+        session.User = updatedProfile;
+        await AuthStateProvider.SetSessionAsync(session);
+    }
+
+    private sealed class UpdateUsernameModel
+    {
+        [Required(ErrorMessage = "El usuario es obligatorio.")]
+        [StringLength(20, MinimumLength = 3, ErrorMessage = "El usuario debe tener entre 3 y 20 caracteres.")]
+        [RegularExpression("^[A-Za-z0-9._-]+$", ErrorMessage = "El usuario solo puede tener letras, numeros, puntos, guiones y guiones bajos.")]
+        public string Username { get; set; } = string.Empty;
     }
 }

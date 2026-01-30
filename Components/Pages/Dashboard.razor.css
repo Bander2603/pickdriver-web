@@ -30,6 +30,29 @@
     overflow: hidden;
 }
 
+button.dashboard-card {
+    appearance: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+}
+
+.dashboard-card--interactive {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card--interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 26px 48px rgba(0, 0, 0, 0.5);
+}
+
+.dashboard-card--interactive:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 3px;
+}
+
 .dashboard-card::before {
     content: "";
     position: absolute;
@@ -124,6 +147,20 @@
 
 .dashboard-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+.dashboard-row--clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.dashboard-row--clickable:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-row--clickable:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: -2px;
 }
 
 .dashboard-pos {

@@ -1,0 +1,11 @@
+.rules-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1.5rem;
+}
+
+.rules-header h1,
+.rules-header p {
+    margin: 0;
+}

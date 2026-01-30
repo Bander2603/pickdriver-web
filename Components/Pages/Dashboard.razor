@@ -6,7 +6,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Pick Driver</PageTitle>
 
 <div class="dashboard-header">
     <div>
@@ -26,7 +26,7 @@ else if (isLoading)
 else
 {
     <div class="dashboard-grid">
-        <section class="dashboard-card">
+        <button type="button" class="dashboard-card dashboard-card--interactive" @onclick="NavigateToCalendar" aria-label="Ir al calendario">
             <div class="dashboard-card__header">
                 <h2 class="dashboard-card__title">Proxima carrera</h2>
             </div>
@@ -60,9 +60,14 @@ else
                     </div>
                 </div>
             }
-        </section>
+        </button>
 
-        <section class="dashboard-card">
+        <section class="dashboard-card @(CanNavigateToLeaguesCard ? "dashboard-card--interactive" : string.Empty)"
+                 role="@(CanNavigateToLeaguesCard ? "button" : null)"
+                 tabindex="@(CanNavigateToLeaguesCard ? "0" : null)"
+                 aria-label="@(CanNavigateToLeaguesCard ? "Ir a ligas" : null)"
+                 @onclick="HandleLeagueCardClick"
+                 @onkeydown="HandleLeagueCardKeyDown">
             <div class="dashboard-card__header">
                 <h2 class="dashboard-card__title">Tus ligas</h2>
             </div>
@@ -93,7 +98,11 @@ else
                     <tbody>
                         @foreach (var item in leagueItems)
                         {
-                            <tr>
+                            <tr class="dashboard-row dashboard-row--clickable"
+                                role="button"
+                                tabindex="0"
+                                @onclick="() => HandleLeagueItemClick(item.League)"
+                                @onkeydown="args => HandleLeagueRowKeyDown(args, item.League)">
                                 <td>@item.League.Name</td>
                                 <td><span class="dashboard-status">@item.League.Status</span></td>
                                 <td class="dashboard-points">@item.PositionLabel</td>
@@ -104,9 +113,9 @@ else
             }
         </section>
 
-        <section class="dashboard-card dashboard-card--full">
+        <button type="button" class="dashboard-card dashboard-card--full dashboard-card--interactive" @onclick="NavigateToResults" aria-label="Ir a resultados">
             <div class="dashboard-card__header">
-                <h2 class="dashboard-card__title">Standings F1</h2>
+                <h2 class="dashboard-card__title">Resultados F1</h2>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(standingsError))
@@ -190,7 +199,7 @@ else
                     </div>
                 </div>
             }
-        </section>
+        </button>
     </div>
 }
 
@@ -269,7 +278,7 @@ else
         }
         else
         {
-            standingsError = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los standings.";
+            standingsError = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los resultados.";
         }
 
         isLoading = false;
@@ -319,6 +328,63 @@ else
         var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
         var encoded = Uri.EscapeDataString(target);
         NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+    private bool CanNavigateToLeaguesCard => leagueItems.Count == 0 && string.IsNullOrWhiteSpace(leaguesError);
+
+    private void NavigateToCalendar()
+    {
+        NavigationManager.NavigateTo("/races");
+    }
+
+    private void NavigateToResults()
+    {
+        NavigationManager.NavigateTo("/standings");
+    }
+
+    private void HandleLeagueCardClick()
+    {
+        if (CanNavigateToLeaguesCard)
+        {
+            NavigationManager.NavigateTo("/leagues");
+        }
+    }
+
+    private void HandleLeagueCardKeyDown(KeyboardEventArgs args)
+    {
+        if (CanNavigateToLeaguesCard && IsActivationKey(args))
+        {
+            NavigationManager.NavigateTo("/leagues");
+        }
+    }
+
+    private void HandleLeagueRowKeyDown(KeyboardEventArgs args, LeaguePublic league)
+    {
+        if (IsActivationKey(args))
+        {
+            HandleLeagueItemClick(league);
+        }
+    }
+
+    private void HandleLeagueItemClick(LeaguePublic league)
+    {
+        if (IsActive(league.Status))
+        {
+            NavigationManager.NavigateTo($"/leagues/{league.Id}/draft");
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/leagues/{league.Id}");
+    }
+
+    private static bool IsActive(string? status)
+    {
+        return string.Equals(status, "active", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsActivationKey(KeyboardEventArgs args)
+    {
+        return args.Key == "Enter" || args.Key == " ";
     }
 
     private static bool TryParseRace(JsonElement payload, out Race? race)

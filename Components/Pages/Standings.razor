@@ -1,14 +1,14 @@
 ﻿@page "/standings"
 @inject ApiClient ApiClient
 
-<PageTitle>Standings</PageTitle>
+<PageTitle>Pick Driver</PageTitle>
 
 <div class="standings-header">
     <div>
         <h1>@GetStandingsTitle()</h1>
-        <p class="standings-subtitle text-muted">Clasificacion actual de la temporada.</p>
+        <p class="standings-subtitle text-muted">Resultados actuales de la temporada.</p>
     </div>
-    <div class="standings-toggle" role="group" aria-label="Tipo de standings">
+    <div class="standings-toggle" role="group" aria-label="Tipo de resultados">
         <button type="button" class="standings-toggle__button @(showTeams ? string.Empty : "active")" @onclick="() => SetStandingsMode(false)">Pilotos</button>
         <button type="button" class="standings-toggle__button @(showTeams ? "active" : string.Empty)" @onclick="() => SetStandingsMode(true)">Equipos</button>
     </div>
@@ -17,7 +17,7 @@
 <div class="standings-panel">
     @if (isLoading)
     {
-        <p class="standings-empty"><em>Cargando standings...</em></p>
+        <p class="standings-empty"><em>Cargando resultados...</em></p>
     }
     else if (!string.IsNullOrWhiteSpace(errorMessage))
     {
@@ -132,7 +132,7 @@
 
         if (!driversResult.Success || !teamsResult.Success)
         {
-            errorMessage = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los standings.";
+            errorMessage = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los resultados.";
         }
         else if (driverInfoResult.Success && driverInfoResult.Data is not null)
         {
@@ -161,7 +161,7 @@
 
     private string GetStandingsTitle()
     {
-        return showTeams ? "Standings de equipos" : "Standings de pilotos";
+        return showTeams ? "Resultados de equipos" : "Resultados de pilotos";
     }
 
     private static string FormatDriverName(DriverStanding driver)

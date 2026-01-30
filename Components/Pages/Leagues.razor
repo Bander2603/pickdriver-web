@@ -6,7 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Ligas</PageTitle>
+<PageTitle>Pick Driver</PageTitle>
 
 <div class="leagues-header">
     <div>
@@ -112,6 +112,8 @@ else
                     </tbody>
                 </table>
             </div>
+
+            <p class="leagues-limit text-muted">Ligas creadas: @CreatedLeaguesCount/@MaxCreatedLeagues</p>
         }
     </div>
 
@@ -249,6 +251,7 @@ else
     private bool isJoining;
     private int userId;
     private int maxPlayersLimit;
+    private const int MaxCreatedLeagues = 3;
     private readonly List<LeaguePublic> leagues = new();
     private readonly HashSet<int> deletingLeagueIds = new();
     private readonly Dictionary<int, int> leagueMemberCounts = new();
@@ -380,6 +383,13 @@ else
         createErrorMessage = null;
         isSubmitting = true;
 
+        if (CreatedLeaguesCount >= MaxCreatedLeagues)
+        {
+            createErrorMessage = $"Has alcanzado el limite de ligas ({MaxCreatedLeagues}).";
+            isSubmitting = false;
+            return;
+        }
+
         if (maxPlayersLimit > 0 && createModel.MaxPlayers > maxPlayersLimit)
         {
             createErrorMessage = $"El maximo permitido es {maxPlayersLimit} jugadores.";
@@ -497,6 +507,9 @@ else
     {
         return string.Equals(status, "active", StringComparison.OrdinalIgnoreCase);
     }
+
+    private int CreatedLeaguesCount => leagues.Count(league =>
+        league.OwnerId == userId && (IsPending(league.Status) || IsActive(league.Status)));
 
     private string GetRoleLabel(LeaguePublic league)
     {

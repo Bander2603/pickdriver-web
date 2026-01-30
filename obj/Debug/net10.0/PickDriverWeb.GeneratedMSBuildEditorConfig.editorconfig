@@ -106,6 +106,10 @@ build_metadata.AdditionalFiles.CssScope = b-pdag1twckq
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9SYWNlcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-rtny97dnih
 
+[/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Rules.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9SdWxlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-13d7s6u70l
+
 [/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/Components/Pages/Standings.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9TdGFuZGluZ3MucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-znioe5yeld
