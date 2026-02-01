@@ -204,6 +204,10 @@
     text-decoration-thickness: 2px;
 }
 
+.draft-order__badge--missed {
+    background: rgba(255, 77, 79, 0.75);
+}
+
 .league-hub-bans__list {
     margin-top: 0.35rem;
     display: grid;
@@ -211,15 +215,28 @@
 }
 
 .league-hub-bans__item {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) repeat(2, minmax(90px, auto));
+    gap: 0.6rem;
+    align-items: center;
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.78);
+}
+
+.league-hub-bans__item--header {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.55);
 }
 
 .league-hub-bans__count {
     font-weight: 600;
     color: #fff;
+    text-align: right;
+    min-width: 4ch;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
 }
 
 .league-hub-deadlines {

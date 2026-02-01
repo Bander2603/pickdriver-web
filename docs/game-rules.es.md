@@ -1,42 +1,31 @@
-# Logica de negocio - PickDriver API (Vapor)
+# Reglas del juego - PickDriver (API)
 
-Este documento resume las reglas reales implementadas en la API para ligas, draft, picks, equipos y standings.
+Este documento describe las reglas vigentes tal como estan implementadas en la API actual.
 
-## Convenciones generales
-- JSON: camelCase por defecto; algunos endpoints usan snake_case en payloads y query params.
-- Todas las rutas de ligas/draft/picks requieren JWT (Authorization: Bearer).
-- Las validaciones se aplican en runtime; no hay reglas adicionales fuera del codigo.
+## Objetivo
+Compite en una liga seleccionando pilotos de Formula 1 por carrera. Ganas puntos segun el rendimiento real del piloto, y la liga se define por el mayor puntaje acumulado en la temporada.
 
 ## Ligas
-### Creacion
-- Requiere temporada activa (season.active = true). Si no, devuelve 400.
-- La liga se crea con status "pending".
-- El creador queda como owner y tambien se agrega como miembro.
-- `teamsEnabled`, `bansEnabled`, `mirrorEnabled` se aceptan sin validaciones adicionales al crear.
+- Requiere temporada activa (`season.active = true`).
+- La liga se crea con status `pending`.
+- El creador queda como `owner` y tambien se agrega como miembro.
 - `maxPlayers` define el limite de miembros.
+- Para unirse: la liga debe estar en `pending`, no puedes ser miembro ya existente, y la liga no puede estar llena (`memberCount >= maxPlayers`).
 
-### Unirse a una liga
-- Solo se puede unir si la liga esta en "pending".
-- No permite unirse si ya es miembro.
-- No permite unirse si la liga esta llena (memberCount >= maxPlayers).
+### Permisos del owner
+- Asignar orden de picks (`assign-pick-order`).
+- Iniciar el draft (`start-draft`).
+- Eliminar la liga (solo si esta en `pending`).
 
-### Permisos
-- `owner` (creador) es el unico que puede:
-  - asignar orden de picks (`assign-pick-order`)
-  - iniciar el draft (`start-draft`)
-  - eliminar la liga (solo si esta "pending")
-- Varias operaciones requieren ser miembro de la liga (ver endpoints protegidos).
+## Opciones de liga
+- `teamsEnabled`, `bansEnabled`, `mirrorEnabled` se aceptan sin validaciones adicionales al crear la liga.
 
-### Eliminar liga
-- Solo owner.
-- Solo si la liga esta en "pending".
-- La eliminacion hace cascade a miembros, equipos, drafts, picks y autopicks por FK.
+## Equipos (Teams)
+Solo aplican si `teamsEnabled = true`.
 
-## Equipos (teams)
 ### Reglas de habilitacion
-- Solo aplican si `teamsEnabled = true`.
-- La liga debe estar en "pending".
-- La liga debe estar completa (memberCount == maxPlayers).
+- La liga debe estar en `pending`.
+- La liga debe estar completa (`memberCount == maxPlayers`).
 
 ### Reglas de tamanos
 - Tamano minimo por equipo: 2.
@@ -50,25 +39,24 @@ Este documento resume las reglas reales implementadas en la API para ligas, draf
 - Un usuario no puede estar en multiples equipos.
 - Solo miembros de la liga pueden estar en equipos.
 
-## Drafts
+## Draft
 ### Activacion (start-draft)
-- Solo owner.
-- Liga debe estar en "pending".
-- La liga debe estar completa (members == maxPlayers).
+- Solo `owner`.
+- Liga en `pending`.
+- Liga completa (`members == maxPlayers`).
 - Si `teamsEnabled = true`, todos los jugadores deben estar asignados a equipos.
 
-### Orden de picks
+### Orden de picks y rotacion
 - Si existe `pickOrder` asignado para todos los miembros, se respeta.
-- Si no, se calcula un orden aleatorio:
+- Si no existe, se calcula un orden aleatorio:
   - sin equipos: shuffle directo
   - con equipos: shuffle por equipo y round-robin entre equipos
 - Por cada carrera futura desde `initialRaceRound`, se rota el orden.
 - Si `mirrorEnabled = true`, el orden se duplica en espejo (rotated + reversed).
 
-### Deadlines
+## Deadlines de picks
 - `firstHalfDeadline = fp1Time - 36h`
 - `secondHalfDeadline = fp1Time`
-- Si no hay `fp1Time` o no existe draft para la carrera, devuelve 404.
 
 ## Autopick
 - Cada usuario puede guardar una lista ordenada de drivers (`driverIDs`) por liga.
@@ -83,7 +71,7 @@ Este documento resume las reglas reales implementadas en la API para ligas, draf
 ## Picks
 ### Reglas de acceso
 - Solo el usuario del turno puede pickear.
-- Si `teamsEnabled = true` y falta menos de 1h para fp1, un companero puede pickear por el turno actual.
+- Si `teamsEnabled = true` y falta menos de 1h para `fp1`, un companero puede pickear por el turno actual.
 
 ### Validaciones
 - No se permite pick/ban si la carrera ya comenzo o esta completada:
@@ -127,7 +115,7 @@ Este documento resume las reglas reales implementadas en la API para ligas, draf
 - Los standings se calculan sobre carreras completadas.
 - En picks con mirror, el sistema calcula la posicion considerando el orden espejo.
 
-## Notificaciones relacionadas al draft
+## Notificaciones del draft
 - Al iniciar draft se notifica al primer usuario del orden.
 - Al completar un pick se notifica al siguiente usuario.
 - Al publicar resultados se generan notificaciones asociadas a la carrera.

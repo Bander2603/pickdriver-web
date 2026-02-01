@@ -1,4 +1,5 @@
 @page "/leagues/{LeagueId:int}/draft"
+@implements IAsyncDisposable
 @inject ApiClient ApiClient
 @inject AuthSessionStore AuthSessionStore
 @inject AuthenticationStateProvider AuthStateProvider
@@ -173,13 +174,19 @@ else
                         @if (league.BansEnabled)
                         {
                             <div class="league-hub-bans">
-                                <span class="league-hub-meta__label">Bans restantes</span>
+                                <span class="league-hub-meta__label">Gestion de bans</span>
                                 <div class="league-hub-bans__list">
-                                    @foreach (var entry in BansRemainingEntries)
+                                    <div class="league-hub-bans__item league-hub-bans__item--header">
+                                        <span class="league-hub-bans__name">@BansHeaderLabel</span>
+                                        <span class="league-hub-bans__count">Ban por carrera</span>
+                                        <span class="league-hub-bans__count">Ban por temporada</span>
+                                    </div>
+                                    @foreach (var entry in BansUsageEntries)
                                     {
                                         <div class="league-hub-bans__item">
                                             <span class="league-hub-bans__name">@entry.Label</span>
-                                            <span class="league-hub-bans__count">@entry.Remaining/@entry.Total</span>
+                                            <span class="league-hub-bans__count">@entry.RaceUsed/@entry.RaceTotal</span>
+                                            <span class="league-hub-bans__count">@entry.SeasonUsed/@entry.SeasonTotal</span>
                                         </div>
                                     }
                                 </div>
@@ -621,6 +628,9 @@ else
     private readonly Dictionary<int, List<PickHistory>> historyCache = new();
     private readonly List<int> autopickDriverIds = new();
     private readonly Dictionary<int, int> bansUsedByTeam = new();
+    private readonly Dictionary<int, int> seasonBansUsedByUser = new();
+    private bool seasonBansLoaded;
+    private bool isLoadingSeasonBans;
     private int? selectedHistoryRound;
     private bool showTeamStandings;
     private HistoryMode historyMode = HistoryMode.Player;
@@ -628,6 +638,10 @@ else
     private PickInfo? lastPickInfo;
     private bool hasAutopickSaved;
     private bool autopickLoaded;
+    private bool isDraftRefreshing;
+    private const int DraftPollingIntervalSeconds = 60;
+    private CancellationTokenSource? draftPollingCts;
+    private Task? draftPollingTask;
 
     protected override async Task OnInitializedAsync()
     {
@@ -762,6 +776,8 @@ else
         await LoadAutopickSummaryAsync();
 
         isLoading = false;
+        _ = LoadSeasonBansUsageAsync();
+        EnsureDraftPollingStarted();
     }
 
     private async Task LoadDraftAsync(int raceId)
@@ -878,8 +894,11 @@ else
     private string AutopickActionLabel
         => hasAutopickSaved ? "Editar Autopick" : "Crear Autopick";
 
-    private IReadOnlyList<BanRemainingEntry> BansRemainingEntries
-        => BuildBansRemainingEntries();
+    private IReadOnlyList<BanUsageEntry> BansUsageEntries
+        => BuildBansUsageEntries();
+
+    private string BansHeaderLabel
+        => league?.TeamsEnabled == true ? "Equipo" : "Jugador";
 
     private int? LastPickUserId
         => raceDraft is not null && raceDraft.CurrentPickIndex > 0
@@ -895,13 +914,24 @@ else
     private int BansLimit
         => league?.TeamsEnabled == true ? 3 : 2;
 
+    private int BansLimitPerRace
+        => 1;
+
     private bool HasRemainingBans
         => GetBansUsedForCurrentSide() < BansLimit;
+
+    private bool HasRemainingBansThisRace
+        => GetBansUsedForCurrentSide() < BansLimitPerRace;
 
     private bool IsBanTargetSameTeam
         => league?.TeamsEnabled == true
             && LastPickUserId.HasValue
             && IsSameTeam(userId, LastPickUserId.Value);
+
+    private bool IsBanTargetAlreadyBannedInRace
+        => league?.TeamsEnabled != true
+            && lastPickInfo is not null
+            && IsUserAlreadyBannedInRace(lastPickInfo.UserId);
 
     private bool CanBanByTurn
     {
@@ -943,7 +973,9 @@ else
             || raceDraft.CurrentPickIndex == 0
             || lastPickInfo is null
             || !HasRemainingBans
+            || !HasRemainingBansThisRace
             || IsBanTargetSameTeam
+            || IsBanTargetAlreadyBannedInRace
             || !CanBanByTurn;
 
     private bool IsConfirmBanDisabled
@@ -1056,6 +1088,10 @@ else
         {
             badges.Add(new PickBadge("Turno actual", "draft-order__badge"));
         }
+        else if (!bannedDriverId.HasValue && raceDraft is not null && index < raceDraft.CurrentPickIndex)
+        {
+            badges.Add(new PickBadge("Missed pick", "draft-order__badge draft-order__badge--missed"));
+        }
 
         return badges;
     }
@@ -1124,26 +1160,28 @@ else
         return GetBansUsedForUser(userId);
     }
 
-    private IReadOnlyList<BanRemainingEntry> BuildBansRemainingEntries()
+    private IReadOnlyList<BanUsageEntry> BuildBansUsageEntries()
     {
         if (league?.BansEnabled != true)
         {
-            return Array.Empty<BanRemainingEntry>();
+            return Array.Empty<BanUsageEntry>();
         }
 
-        var limit = BansLimit;
-        var usedByUser = BuildBansUsedByUser();
-        var entries = new List<BanRemainingEntry>();
+        var raceLimit = BansLimitPerRace;
+        var seasonLimit = BansLimit;
+        var usedByUserInRace = BuildBansUsedByUser(raceDraft);
+        var usedByUserSeason = seasonBansUsedByUser;
+        var entries = new List<BanUsageEntry>();
 
         if (league.TeamsEnabled && teams.Count > 0)
         {
             foreach (var team in teams)
             {
-                var used = usedByUser.Count == 0 && bansUsedByTeam.TryGetValue(team.Id, out var localUsed)
+                var raceUsed = usedByUserInRace.Count == 0 && bansUsedByTeam.TryGetValue(team.Id, out var localUsed)
                     ? localUsed
-                    : team.Members.Sum(member => usedByUser.TryGetValue(member.User.Id, out var count) ? count : 0);
-                var remaining = Math.Max(limit - used, 0);
-                entries.Add(new BanRemainingEntry(team.Name, remaining, limit));
+                    : team.Members.Sum(member => usedByUserInRace.TryGetValue(member.User.Id, out var count) ? count : 0);
+                var seasonUsed = team.Members.Sum(member => usedByUserSeason.TryGetValue(member.User.Id, out var count) ? count : 0);
+                entries.Add(new BanUsageEntry(team.Name, raceUsed, raceLimit, seasonUsed, seasonLimit));
             }
 
             return entries;
@@ -1151,22 +1189,50 @@ else
 
         foreach (var member in members)
         {
-            var used = usedByUser.Count == 0 && bansUsedByTeam.TryGetValue(member.Id, out var localUsed)
+            var raceUsed = usedByUserInRace.Count == 0 && bansUsedByTeam.TryGetValue(member.Id, out var localUsed)
                 ? localUsed
-                : (usedByUser.TryGetValue(member.Id, out var count) ? count : 0);
-            var remaining = Math.Max(limit - used, 0);
-            entries.Add(new BanRemainingEntry(member.Username, remaining, limit));
+                : (usedByUserInRace.TryGetValue(member.Id, out var count) ? count : 0);
+            var seasonUsed = usedByUserSeason.TryGetValue(member.Id, out var seasonCount) ? seasonCount : 0;
+            entries.Add(new BanUsageEntry(member.Username, raceUsed, raceLimit, seasonUsed, seasonLimit));
         }
 
         return entries;
     }
 
-    private Dictionary<int, int> BuildBansUsedByUser()
+    private static Dictionary<int, int> BuildBansUsedByUser(RaceDraft? draft)
     {
         var counts = new Dictionary<int, int>();
-        if (raceDraft is null || raceDraft.PickOrder.Count == 0)
+        if (draft is null || draft.PickOrder.Count == 0)
         {
             return counts;
+        }
+
+        var pickOrderCount = draft.PickOrder.Count;
+        var limit = Math.Min(pickOrderCount, draft.BannedDriverIdsByPickIndex.Count);
+        for (var i = 0; i < limit; i++)
+        {
+            if (!draft.BannedDriverIdsByPickIndex[i].HasValue)
+            {
+                continue;
+            }
+
+            var bannerIndex = i + 1;
+            if (bannerIndex >= pickOrderCount)
+            {
+                bannerIndex = 0;
+            }
+            var banningUserId = draft.PickOrder[bannerIndex];
+            counts[banningUserId] = counts.TryGetValue(banningUserId, out var current) ? current + 1 : 1;
+        }
+
+        return counts;
+    }
+
+    private bool IsUserAlreadyBannedInRace(int targetUserId)
+    {
+        if (raceDraft is null || raceDraft.PickOrder.Count == 0 || raceDraft.BannedDriverIdsByPickIndex.Count == 0)
+        {
+            return false;
         }
 
         var limit = Math.Min(raceDraft.PickOrder.Count, raceDraft.BannedDriverIdsByPickIndex.Count);
@@ -1177,16 +1243,18 @@ else
                 continue;
             }
 
-            var banningUserId = raceDraft.PickOrder[i];
-            counts[banningUserId] = counts.TryGetValue(banningUserId, out var current) ? current + 1 : 1;
+            if (raceDraft.PickOrder[i] == targetUserId)
+            {
+                return true;
+            }
         }
 
-        return counts;
+        return false;
     }
 
     private int GetBansUsedForUser(int targetUserId)
     {
-        var counts = BuildBansUsedByUser();
+        var counts = BuildBansUsedByUser(raceDraft);
         if (counts.Count > 0)
         {
             return counts.TryGetValue(targetUserId, out var count) ? count : 0;
@@ -1197,7 +1265,7 @@ else
 
     private int GetBansUsedForTeam(int teamId)
     {
-        var counts = BuildBansUsedByUser();
+        var counts = BuildBansUsedByUser(raceDraft);
         if (counts.Count > 0)
         {
             var team = teams.FirstOrDefault(item => item.Id == teamId);
@@ -1682,6 +1750,11 @@ else
         {
             bansUsedByTeam[userId] = bansUsedByTeam.TryGetValue(userId, out var count) ? count + 1 : 1;
         }
+
+        if (seasonBansLoaded)
+        {
+            seasonBansUsedByUser[userId] = seasonBansUsedByUser.TryGetValue(userId, out var count) ? count + 1 : 1;
+        }
     }
 
     private static Dictionary<string, int> BuildPickPayload(int driverId)
@@ -1710,6 +1783,132 @@ else
     private void SetTab(LeagueTab tab)
     {
         activeTab = tab;
+        EnsureDraftPollingStarted();
+    }
+
+    private void EnsureDraftPollingStarted()
+    {
+        if (!isAuthorized || draftPollingTask is not null)
+        {
+            return;
+        }
+
+        draftPollingCts = new CancellationTokenSource();
+        draftPollingTask = RunDraftPollingAsync(draftPollingCts.Token);
+    }
+
+    private async Task RunDraftPollingAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(DraftPollingIntervalSeconds));
+        while (await timer.WaitForNextTickAsync(token))
+        {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (activeTab != LeagueTab.Draft || draftRace is null)
+            {
+                continue;
+            }
+
+            if (isDraftRefreshing || isSubmittingPick || isSubmittingBan)
+            {
+                continue;
+            }
+
+            await InvokeAsync(RefreshDraftAsync);
+        }
+    }
+
+    private async Task RefreshDraftAsync()
+    {
+        if (draftRace is null || isDraftRefreshing)
+        {
+            return;
+        }
+
+        isDraftRefreshing = true;
+        try
+        {
+            await LoadDraftAsync(draftRace.Id);
+        }
+        finally
+        {
+            isDraftRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSeasonBansUsageAsync()
+    {
+        if (league?.BansEnabled != true || isLoadingSeasonBans || seasonBansLoaded || allRaces.Count == 0 || draftRace is null)
+        {
+            return;
+        }
+
+        isLoadingSeasonBans = true;
+        seasonBansUsedByUser.Clear();
+
+        var initialRound = league?.InitialRaceRound ?? 1;
+        var maxRound = draftRace.Round;
+        var targetRaces = allRaces
+            .Where(race => race.Round >= initialRound && race.Round <= maxRound)
+            .ToList();
+
+        if (targetRaces.Count == 0)
+        {
+            seasonBansLoaded = true;
+            isLoadingSeasonBans = false;
+            return;
+        }
+
+        var tasks = targetRaces
+            .Select(race => ApiClient.GetAsync<RaceDraft>($"leagues/{LeagueId}/draft/{race.Id}", auth: true))
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        foreach (var result in results)
+        {
+            if (!result.Success || result.Data is null)
+            {
+                continue;
+            }
+
+            var counts = BuildBansUsedByUser(result.Data);
+            foreach (var entry in counts)
+            {
+                seasonBansUsedByUser[entry.Key] = seasonBansUsedByUser.TryGetValue(entry.Key, out var current)
+                    ? current + entry.Value
+                    : entry.Value;
+            }
+        }
+
+        seasonBansLoaded = true;
+        isLoadingSeasonBans = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (draftPollingCts is null)
+        {
+            return;
+        }
+
+        draftPollingCts.Cancel();
+        if (draftPollingTask is not null)
+        {
+            try
+            {
+                await draftPollingTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        draftPollingCts.Dispose();
     }
 
     private void SetStandingsMode(bool showTeams)
@@ -1787,7 +1986,7 @@ else
 
     private sealed record PickBadge(string Label, string CssClass);
 
-    private sealed record BanRemainingEntry(string Label, int Remaining, int Total);
+    private sealed record BanUsageEntry(string Label, int RaceUsed, int RaceTotal, int SeasonUsed, int SeasonTotal);
 
     private sealed class RacePickRow
     {
