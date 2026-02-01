@@ -304,12 +304,12 @@ else
         {
             var membersTask = ApiClient.GetAsync<List<UserPublic>>($"leagues/{LeagueId}/members", auth: true);
             Task<ApiResult<List<LeagueTeam>>>? teamsTask = null;
-            Task<ApiResult<List<TeamStanding>>>? seasonTeamsTask = null;
+            Task<ApiResult<List<F1Team>>>? seasonTeamsTask = null;
 
             if (league.TeamsEnabled)
             {
                 teamsTask = ApiClient.GetAsync<List<LeagueTeam>>($"leagues/{LeagueId}/teams", auth: true);
-                seasonTeamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+                seasonTeamsTask = ApiClient.GetAsync<List<F1Team>>("f1/teams");
             }
 
             var tasks = new List<Task> { membersTask };

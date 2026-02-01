@@ -274,7 +274,7 @@ else
 
         var leaguesTask = ApiClient.GetAsync<List<LeaguePublic>>("leagues/my", auth: true);
         var driversTask = ApiClient.GetAsync<List<Driver>>("drivers");
-        var teamsTask = ApiClient.GetAsync<List<TeamStanding>>("standings/f1/teams");
+        var teamsTask = ApiClient.GetAsync<List<F1Team>>("f1/teams");
 
         await Task.WhenAll(leaguesTask, driversTask, teamsTask);
 
