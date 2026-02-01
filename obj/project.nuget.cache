@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "szEkyHlYQY0=",
+  "dgSpecHash": "7dfjMmmE0Zo=",
   "success": true,
   "projectFilePath": "/Users/eduardomelcondiez/Desktop/WWAC/pickdriver-web/pickdriver-web/PickDriverWeb.csproj",
   "expectedPackageFiles": [
-    "/Users/eduardomelcondiez/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.2/microsoft.aspnetcore.app.internal.assets.10.0.2.nupkg.sha512"
+    "/Users/eduardomelcondiez/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.2/microsoft.aspnetcore.app.internal.assets.10.0.2.nupkg.sha512",
+    "/Users/eduardomelcondiez/.nuget/packages/microsoft.netcore.app.host.linux-arm64/10.0.2/microsoft.netcore.app.host.linux-arm64.10.0.2.nupkg.sha512"
   ],
   "logs": []
 }
