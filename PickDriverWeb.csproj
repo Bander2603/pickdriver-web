@@ -8,4 +8,22 @@
     <UserSecretsId>8a7eb830-031b-4ce4-a325-f43634581cf2</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="PickDriverWeb.Tests/**" />
+    <Content Remove="PickDriverWeb.Tests/**" />
+    <EmbeddedResource Remove="PickDriverWeb.Tests/**" />
+    <None Remove="PickDriverWeb.Tests/**" />
+    <Compile Remove="publish/**" />
+    <Content Remove="publish/**" />
+    <EmbeddedResource Remove="publish/**" />
+    <None Remove="publish/**" />
+    <RazorComponentJavaScript Remove="publish/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>PickDriverWeb.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

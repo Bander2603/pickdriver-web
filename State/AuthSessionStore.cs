@@ -2,7 +2,7 @@
 
 namespace PickDriverWeb.State;
 
-public sealed class AuthSessionStore
+public sealed class AuthSessionStore : IAuthSessionStore
 {
     private const string StorageKey = "pickdriver.auth.session";
     private readonly ProtectedLocalStorage _storage;
@@ -61,4 +61,3 @@ public sealed class AuthSessionStore
         }
     }
 }
-

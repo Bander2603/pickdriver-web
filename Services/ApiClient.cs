@@ -10,9 +10,9 @@ namespace PickDriverWeb.Services;
 public sealed class ApiClient
 {
     private readonly HttpClient _http;
-    private readonly AuthSessionStore _sessionStore;
+    private readonly IAuthSessionStore _sessionStore;
 
-    public ApiClient(HttpClient http, AuthSessionStore sessionStore)
+    public ApiClient(HttpClient http, IAuthSessionStore sessionStore)
     {
         _http = http;
         _sessionStore = sessionStore;
@@ -56,7 +56,29 @@ public sealed class ApiClient
             }
         }
 
-        using var response = await _http.SendAsync(message);
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(message);
+        }
+        catch (HttpRequestException)
+        {
+            return new ApiResult<TResponse>
+            {
+                Success = false,
+                ErrorMessage = "No se pudo conectar con la API.",
+                StatusCode = 0
+            };
+        }
+        catch (TaskCanceledException)
+        {
+            return new ApiResult<TResponse>
+            {
+                Success = false,
+                ErrorMessage = "La solicitud a la API expiro.",
+                StatusCode = 0
+            };
+        }
 
         if (response.IsSuccessStatusCode)
         {

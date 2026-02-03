@@ -7,9 +7,9 @@ namespace PickDriverWeb.State;
 public sealed class PickDriverAuthStateProvider : AuthenticationStateProvider
 {
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
-    private readonly AuthSessionStore _sessionStore;
+    private readonly IAuthSessionStore _sessionStore;
 
-    public PickDriverAuthStateProvider(AuthSessionStore sessionStore)
+    public PickDriverAuthStateProvider(IAuthSessionStore sessionStore)
     {
         _sessionStore = sessionStore;
     }
@@ -46,4 +46,3 @@ public sealed class PickDriverAuthStateProvider : AuthenticationStateProvider
 
     public Task<AuthSession?> GetSessionAsync() => _sessionStore.GetAsync();
 }
-

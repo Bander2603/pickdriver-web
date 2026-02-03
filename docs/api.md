@@ -1,7 +1,7 @@
 # PickDriver API (Vapor) - Documentacion para cliente web (.NET/Blazor)
 
 ## Base URL
-- Produccion: https://api.pickdriver.cc
+- Produccion: https://api.example.com
 - Prefijo: /api
 - Content-Type: application/json
 - Fechas: ISO 8601 (UTC)
@@ -23,7 +23,7 @@
 Ejemplo:
 ```bash
 curl -H "Authorization: Bearer <token>" \
-  https://api.pickdriver.cc/api/leagues/my
+  https://api.example.com/api/leagues/my
 ```
 
 ## Flujo de autenticacion recomendado
@@ -262,7 +262,7 @@ NotificationPayload:
 { "leagueID": Int?, "raceID": Int?, "draftID": Int?, "pickIndex": Int? }
 
 ## CORS, dominio y Cloudflare
-- Si el cliente vive en https://pickdriver.cc y la API en otro origen (ej. https://api.pickdriver.cc), el navegador requiere CORS.
+- Si el cliente vive en https://pickdriver.cc y la API en otro origen (ej. https://api.example.com), el navegador requiere CORS.
 - Actualmente no hay CORSMiddleware configurado.
 - Sugerencia: habilitar CORS para https://pickdriver.cc (+ www y staging si aplica) y permitir headers Authorization y Content-Type.
 - Si se hace proxy de la API bajo el mismo origen (pickdriver.cc/api), no hace falta CORS.
