@@ -139,10 +139,17 @@
 .race-card__circuit {
     width: 96px;
     height: 54px;
-    background-position: right bottom;
-    background-repeat: no-repeat;
-    background-size: contain;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0.9;
+}
+
+.race-card__circuit img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
 }
 
 .race-card--featured .race-card__top,

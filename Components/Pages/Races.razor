@@ -43,7 +43,9 @@ else
                 <p class="race-card__event">@race.Name</p>
                 <div class="race-card__footer">
                     <span class="race-card__date-range">@GetRaceDateRange(race)</span>
-                    <div class="race-card__circuit" style="background-image: url('@GetCircuitSimpleUrl(race)')"></div>
+                    <div class="race-card__circuit">
+                        <img src="@GetCircuitSimpleUrl(race)" alt="Circuito @race.CircuitName" />
+                    </div>
                 </div>
             </button>
 
@@ -123,6 +125,7 @@ else
     private bool shouldScrollToDetails;
     private bool isClosing;
     private string? detailsKey;
+    private static readonly string AssetVersion = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
 
     protected override async Task OnInitializedAsync()
     {
@@ -223,7 +226,7 @@ else
         }
 
         var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + "_simple.png");
-        return $"/assets/races/Circuits%20Simple/{fileName}";
+        return $"/assets/races/Circuits%20Simple/{fileName}?v={AssetVersion}";
     }
 
     private static string GetCircuitUrl(Race race)
@@ -234,7 +237,7 @@ else
         }
 
         var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + ".png");
-        return $"/assets/races/Circuits/{fileName}";
+        return $"/assets/races/Circuits/{fileName}?v={AssetVersion}";
     }
 
     private static IReadOnlyList<ScheduleItem> GetScheduleItems(Race race)
