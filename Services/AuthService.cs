@@ -17,6 +17,15 @@ public sealed class AuthService
     public Task<ApiResult<RegisterResponse>> RegisterAsync(RegisterRequest request)
         => _apiClient.PostAsync<RegisterRequest, RegisterResponse>("auth/register", request);
 
+    public Task<ApiResult<AuthMessageResponse>> ResendVerificationAsync(ResendVerificationRequest request)
+        => _apiClient.PostAsync<ResendVerificationRequest, AuthMessageResponse>("auth/resend-verification", request);
+
+    public Task<ApiResult<AuthMessageResponse>> ForgotPasswordAsync(ForgotPasswordRequest request)
+        => _apiClient.PostAsync<ForgotPasswordRequest, AuthMessageResponse>("auth/forgot-password", request);
+
+    public Task<ApiResult<AuthMessageResponse>> ResetPasswordAsync(ResetPasswordRequest request)
+        => _apiClient.PostAsync<ResetPasswordRequest, AuthMessageResponse>("auth/reset-password", request);
+
     public async Task<ApiResult<LoginResponse>> LoginAsync(LoginRequest request)
     {
         var result = await _apiClient.PostAsync<LoginRequest, LoginResponse>("auth/login", request);

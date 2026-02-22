@@ -96,6 +96,103 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task ResendVerificationAsync_CallsExpectedEndpoint()
+    {
+        string? path = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new AuthMessageResponse
+                {
+                    Message = "verification sent"
+                }, options: ApiJson.Options)
+            };
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore();
+        var authProvider = new PickDriverAuthStateProvider(sessionStore);
+        var apiClient = new ApiClient(client, sessionStore);
+        var authService = new AuthService(apiClient, authProvider);
+
+        var result = await authService.ResendVerificationAsync(new ResendVerificationRequest
+        {
+            Email = "demo@example.com"
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("/auth/resend-verification", path);
+        Assert.Equal("verification sent", result.Data?.Message);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_CallsExpectedEndpoint()
+    {
+        string? path = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new AuthMessageResponse
+                {
+                    Message = "reset email sent"
+                }, options: ApiJson.Options)
+            };
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore();
+        var authProvider = new PickDriverAuthStateProvider(sessionStore);
+        var apiClient = new ApiClient(client, sessionStore);
+        var authService = new AuthService(apiClient, authProvider);
+
+        var result = await authService.ForgotPasswordAsync(new ForgotPasswordRequest
+        {
+            Email = "demo@example.com"
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("/auth/forgot-password", path);
+        Assert.Equal("reset email sent", result.Data?.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_CallsExpectedEndpoint()
+    {
+        string? path = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new AuthMessageResponse
+                {
+                    Message = "password updated"
+                }, options: ApiJson.Options)
+            };
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore();
+        var authProvider = new PickDriverAuthStateProvider(sessionStore);
+        var apiClient = new ApiClient(client, sessionStore);
+        var authService = new AuthService(apiClient, authProvider);
+
+        var result = await authService.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Token = "token",
+            NewPassword = "new-password"
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("/auth/reset-password", path);
+        Assert.Equal("password updated", result.Data?.Message);
+    }
+
+    [Fact]
     public async Task LogoutAsync_ClearsSession()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));

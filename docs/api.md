@@ -27,12 +27,13 @@ curl -H "Authorization: Bearer <token>" \
 ```
 
 ## Flujo de autenticacion recomendado
-1) POST /api/auth/register (requiere inviteCode)
-2) POST /api/auth/login -> token JWT
-3) Enviar token en Authorization para el resto de endpoints protegidos
+1) POST /api/auth/register
+2) Verificar email desde el enlace recibido (`GET /api/auth/verify-email-link?token=...`)
+3) POST /api/auth/login -> token JWT
+4) Enviar token en Authorization para el resto de endpoints protegidos
 
 Alternativa:
-- POST /api/auth/google (login/registro con Google; no requiere inviteCode)
+- POST /api/auth/google (login/registro con Google)
 
 Notas:
 - No hay refresh token; cuando expira el JWT, se re-login.
@@ -43,9 +44,9 @@ Auth:
 - email: max 100, validacion por regex, se normaliza a lowercase
 - password: minimo 8 caracteres
 - update password: no puede ser igual a la actual
-- register con email/password requiere inviteCode (codigo de invitacion)
-- si INVITE_CODE esta configurado en el backend, solo ese codigo es valido
-- si INVITE_CODE no existe, se validan codigos en tabla `invite_codes` (no usados)
+- register con email/password crea cuentas con `emailVerified=false` hasta completar verificacion
+- login email/password devuelve 403 si el email no esta verificado
+- verificacion de email y reset de password usan tokens de un solo uso con expiracion
 - Google auth: requiere GOOGLE_CLIENT_ID en el backend
 
 Ligas y equipos:
@@ -80,15 +81,28 @@ Notificaciones:
 
 ### Auth
 - POST /api/auth/register
-  - Req: { "username": "user", "email": "a@b.com", "password": "...", "inviteCode": "INVITE" }
-  - Res: { "user": UserPublic }
+  - Req: { "username": "user", "email": "a@b.com", "password": "..." }
+  - Res: { "user": UserPublic, "verificationEmailSent": Bool }
 - POST /api/auth/login
   - Req: { "email": "a@b.com", "password": "..." }
   - Res: { "user": UserPublic, "token": "..." }
+  - Nota: devuelve 403 si el email aun no esta verificado.
+- POST /api/auth/resend-verification
+  - Req: { "email": "a@b.com" }
+  - Res: { "message": "If the account exists and is pending verification, a verification email has been sent." }
+- GET /api/auth/verify-email-link?token=...
+  - Res: 200 OK (o redirect si `EMAIL_VERIFICATION_SUCCESS_REDIRECT_URL` esta configurado)
+- POST /api/auth/forgot-password
+  - Req: { "email": "a@b.com" }
+  - Res: { "message": "If the account exists, password reset instructions have been sent." }
+- GET /api/auth/reset-password-link?token=...
+  - Res: 200 OK (o redirect si `PASSWORD_RESET_REDIRECT_URL` esta configurado)
+- POST /api/auth/reset-password
+  - Req: { "token": "...", "newPassword": "..." }
+  - Res: { "message": "Password updated successfully." }
 - POST /api/auth/google
-  - Req: { "idToken": "...", "inviteCode": "INVITE"? }
+  - Req: { "idToken": "..." }
   - Res: { "user": UserPublic, "token": "..." }
-  - Nota: inviteCode es opcional (Google no requiere invitacion).
 - GET /api/auth/profile (auth)
   - Res: UserPublic
 - PUT /api/auth/password (auth)

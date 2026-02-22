@@ -1,4 +1,4 @@
-﻿@page "/register"
+@page "/register"
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.Extensions.Options
@@ -17,13 +17,28 @@
     <div class="alert alert-danger" role="alert">@errorMessage</div>
 }
 
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
 @if (isSuccess)
 {
     <div class="alert alert-success" role="alert">
-        Registro completado. Ya puedes iniciar sesion.
+        Registro completado. Revisa tu email para verificar la cuenta antes de iniciar sesion.
     </div>
 
+    @if (!verificationEmailSent)
+    {
+        <div class="alert alert-warning" role="alert">
+            No se pudo confirmar el envio del email de verificacion. Puedes solicitarlo de nuevo.
+        </div>
+    }
+
     <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-outline-secondary" type="button" disabled="@isResendingVerification" @onclick="HandleResendVerificationAsync">
+            @(isResendingVerification ? "Reenviando..." : "Reenviar verificacion")
+        </button>
         <a class="btn btn-primary" href="login">Iniciar sesion</a>
     </div>
 }
@@ -52,12 +67,6 @@ else
         </div>
 
         <div class="mb-3">
-            <label class="form-label" for="register-invite">Codigo de invitacion (solo registro con email)</label>
-            <InputText id="register-invite" class="form-control" autocomplete="off" @bind-Value="model.InviteCode" />
-            <ValidationMessage For="() => model.InviteCode" />
-        </div>
-
-        <div class="mb-3">
             <label class="form-label" for="register-confirm">Confirmar password</label>
             <InputText id="register-confirm" class="form-control" type="password" autocomplete="new-password" @bind-Value="model.ConfirmPassword" />
             <ValidationMessage For="() => model.ConfirmPassword" />
@@ -65,7 +74,7 @@ else
 
         <div class="auth-actions">
             <button class="btn btn-primary" type="submit" disabled="@isSubmitting">
-                @(isSubmitting ? "Creando..." : "Registrarme con codigo")
+                @(isSubmitting ? "Creando..." : "Crear cuenta")
             </button>
         </div>
     </EditForm>
@@ -93,13 +102,21 @@ else
             Login con Google no esta configurado.
         </small>
     }
+
+    <p class="mt-3">
+        Ya tienes cuenta? <a href="login">Iniciar sesion</a>
+    </p>
 }
 
 @code {
     private readonly RegisterFormModel model = new();
     private bool isSubmitting;
     private bool isSuccess;
+    private bool isResendingVerification;
+    private bool verificationEmailSent;
+    private string registeredEmail = string.Empty;
     private string? errorMessage;
+    private string? infoMessage;
     private DotNetObjectReference<Register>? googleRef;
 
     private const string GoogleButtonId = "google-register-button";
@@ -108,14 +125,14 @@ else
     private async Task HandleRegister()
     {
         errorMessage = null;
+        infoMessage = null;
         isSubmitting = true;
 
         var result = await AuthService.RegisterAsync(new RegisterRequest
         {
             Username = model.Username.Trim(),
             Email = model.Email.Trim(),
-            Password = model.Password,
-            InviteCode = model.InviteCode.Trim()
+            Password = model.Password
         });
 
         isSubmitting = false;
@@ -123,10 +140,41 @@ else
         if (result.Success && result.Data is not null)
         {
             isSuccess = true;
+            registeredEmail = model.Email.Trim();
+            verificationEmailSent = result.Data.VerificationEmailSent;
             return;
         }
 
         errorMessage = result.ErrorMessage ?? "No se pudo completar el registro.";
+    }
+
+    private async Task HandleResendVerificationAsync()
+    {
+        if (string.IsNullOrWhiteSpace(registeredEmail))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        infoMessage = null;
+        isResendingVerification = true;
+
+        var result = await AuthService.ResendVerificationAsync(new ResendVerificationRequest
+        {
+            Email = registeredEmail
+        });
+
+        isResendingVerification = false;
+
+        if (result.Success)
+        {
+            infoMessage = string.IsNullOrWhiteSpace(result.Data?.Message)
+                ? "Si la cuenta existe y esta pendiente, se envio otro email de verificacion."
+                : result.Data.Message;
+            return;
+        }
+
+        errorMessage = result.ErrorMessage ?? "No se pudo reenviar el email de verificacion.";
     }
 
     private sealed class RegisterFormModel
@@ -142,9 +190,6 @@ else
         [Required(ErrorMessage = "La password es obligatoria.")]
         [MinLength(8, ErrorMessage = "La password debe tener al menos 8 caracteres.")]
         public string Password { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "El codigo de invitacion es obligatorio.")]
-        public string InviteCode { get; set; } = string.Empty;
 
         [Compare(nameof(Password), ErrorMessage = "Las passwords no coinciden.")]
         public string ConfirmPassword { get; set; } = string.Empty;
@@ -182,7 +227,7 @@ else
             return;
         }
 
-        errorMessage = result.ErrorMessage ?? "No se pudo registrarte con Google.";
+        errorMessage = result.ErrorMessage ?? "No se pudo registrar con Google.";
     }
 
     public async ValueTask DisposeAsync()

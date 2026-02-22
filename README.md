@@ -13,6 +13,7 @@ Blazor Server web client for the PickDriver fantasy F1 experience. This repo foc
 ## Features
 
 - Auth (email/password + Google login when configured)
+- Email verification and password reset flows for email/password accounts
 - Leagues management (create/join/delete)
 - Draft flow and standings UI
 - Profile management

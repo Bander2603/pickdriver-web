@@ -24,7 +24,35 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
 
         if (Is(method, HttpMethod.Post) && Match(segments, "auth", "register"))
         {
-            return Ok(new RegisterResponse { User = MockApiData.DemoUser });
+            return Ok(new RegisterResponse
+            {
+                User = MockApiData.DemoUser,
+                VerificationEmailSent = true
+            });
+        }
+
+        if (Is(method, HttpMethod.Post) && Match(segments, "auth", "resend-verification"))
+        {
+            return Ok(new AuthMessageResponse
+            {
+                Message = "If the account exists and is pending verification, a verification email has been sent."
+            });
+        }
+
+        if (Is(method, HttpMethod.Post) && Match(segments, "auth", "forgot-password"))
+        {
+            return Ok(new AuthMessageResponse
+            {
+                Message = "If the account exists, password reset instructions have been sent."
+            });
+        }
+
+        if (Is(method, HttpMethod.Post) && Match(segments, "auth", "reset-password"))
+        {
+            return Ok(new AuthMessageResponse
+            {
+                Message = "Password updated successfully."
+            });
         }
 
         if (Is(method, HttpMethod.Post) && Match(segments, "auth", "google"))

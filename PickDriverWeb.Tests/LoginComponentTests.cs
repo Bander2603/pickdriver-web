@@ -81,4 +81,29 @@ public sealed class LoginComponentTests
             Assert.Contains("Credenciales invalidas", cut.Markup);
         });
     }
+
+    [Fact]
+    public void Submit_WhenEmailNotVerified_ShowsResendVerificationAction()
+    {
+        using var ctx = new TestContext();
+        ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.Forbidden)
+            {
+                Content = JsonContent.Create(new ApiError { Error = true, Reason = "Email no verificado" }, options: ApiJson.Options)
+            };
+        }));
+
+        var cut = ctx.RenderComponent<Login>();
+
+        cut.Find("#login-email").Change("demo@example.com");
+        cut.Find("#login-password").Change("secret");
+        cut.Find("form").Submit();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Tu cuenta aun no esta verificada.", cut.Markup);
+            Assert.Contains("Reenviar email de verificacion", cut.Markup);
+        });
+    }
 }
