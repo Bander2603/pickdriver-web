@@ -70,6 +70,16 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
             return Ok(MockApiData.DemoUser);
         }
 
+        if (Is(method, HttpMethod.Put) && Match(segments, "auth", "password"))
+        {
+            return NoContent();
+        }
+
+        if (Is(method, HttpMethod.Delete) && Match(segments, "auth", "account"))
+        {
+            return NoContent();
+        }
+
         if (Is(method, HttpMethod.Get) && Match(segments, "leagues", "my"))
         {
             return Ok(MockApiData.Leagues);

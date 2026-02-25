@@ -1,72 +1,183 @@
-﻿@page "/profile"
+@page "/profile"
 @using System.ComponentModel.DataAnnotations
+@implements IDisposable
 @inject ApiClient ApiClient
 @inject AuthService AuthService
 @inject IAuthSessionStore AuthSessionStore
 @inject PickDriverAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject EmailCooldownService EmailCooldownService
 
 <PageTitle>Pick Driver</PageTitle>
 
-<h1>Perfil</h1>
+<section class="profile-page">
+    <header class="profile-header">
+        <div class="profile-avatar" aria-hidden="true">@GetUserInitial()</div>
+        <div class="profile-header__copy">
+            <h1>Mi perfil</h1>
+            <p class="text-muted">Gestiona usuario, seguridad y ajustes de cuenta.</p>
+        </div>
+    </header>
 
-@if (!isAuthorized)
-{
-    <p>Redirigiendo al login...</p>
-}
-else if (isLoading)
-{
-    <p><em>Cargando perfil...</em></p>
-}
-else if (!string.IsNullOrWhiteSpace(errorMessage))
-{
-    <div class="alert alert-warning" role="alert">@errorMessage</div>
-}
+    @if (!isAuthorized)
+    {
+        <p>Redirigiendo al login...</p>
+    }
+    else if (isLoading)
+    {
+        <p><em>Cargando perfil...</em></p>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-warning" role="alert">@errorMessage</div>
+    }
 
-@if (profile is not null)
-{
-    <dl class="row">
-        <dt class="col-sm-3">Usuario</dt>
-        <dd class="col-sm-9">@profile.Username</dd>
-
-        <dt class="col-sm-3">Email</dt>
-        <dd class="col-sm-9">@profile.Email</dd>
-    </dl>
-
-    <div class="mt-4">
-        <h2 class="h5">Cambiar nombre de usuario</h2>
-
-        @if (!string.IsNullOrWhiteSpace(usernameUpdateError))
-        {
-            <div class="alert alert-warning" role="alert">@usernameUpdateError</div>
-        }
-        else if (!string.IsNullOrWhiteSpace(usernameUpdateSuccess))
-        {
-            <div class="alert alert-success" role="alert">@usernameUpdateSuccess</div>
-        }
-
-        <EditForm Model="usernameModel" OnValidSubmit="HandleUsernameUpdateAsync">
-            <DataAnnotationsValidator />
-
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-6">
-                    <label class="form-label" for="profile-username">Usuario</label>
-                    <InputText id="profile-username" class="form-control" autocomplete="username" maxlength="20" @bind-Value="usernameModel.Username" />
-                    <ValidationMessage For="() => usernameModel.Username" />
+    @if (profile is not null)
+    {
+        <div class="profile-grid">
+            <section class="profile-card profile-card--account">
+                <div class="profile-card__title-wrap">
+                    <h2 class="profile-card__title">Cuenta</h2>
+                    <span class="profile-chip">Activa</span>
                 </div>
-                <div class="col-12 col-md-auto">
-                    <button class="btn btn-primary" type="submit" disabled="@isUpdatingUsername">
-                        @(isUpdatingUsername ? "Guardando..." : "Guardar")
+
+                <dl class="profile-facts">
+                    <div>
+                        <dt>Usuario</dt>
+                        <dd>@profile.Username</dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd>@profile.Email</dd>
+                    </div>
+                </dl>
+
+                <h3 class="profile-card__subtitle">Cambiar nombre de usuario</h3>
+
+                @if (!string.IsNullOrWhiteSpace(usernameUpdateError))
+                {
+                    <div class="alert alert-warning" role="alert">@usernameUpdateError</div>
+                }
+                else if (!string.IsNullOrWhiteSpace(usernameUpdateSuccess))
+                {
+                    <div class="alert alert-success" role="alert">@usernameUpdateSuccess</div>
+                }
+
+                <EditForm Model="usernameModel" OnValidSubmit="HandleUsernameUpdateAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="profile-form-grid">
+                        <div>
+                            <label class="form-label" for="profile-username">Usuario</label>
+                            <InputText id="profile-username" class="form-control" autocomplete="username" maxlength="20" @bind-Value="usernameModel.Username" />
+                            <ValidationMessage For="() => usernameModel.Username" />
+                        </div>
+                        <div class="profile-form-action">
+                            <button class="btn btn-primary" type="submit" disabled="@isUpdatingUsername">
+                                @(isUpdatingUsername ? "Guardando..." : "Guardar")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            </section>
+
+            <section class="profile-card profile-card--security">
+                <h2 class="profile-card__title">Seguridad</h2>
+
+                @if (!string.IsNullOrWhiteSpace(passwordActionError))
+                {
+                    <div class="alert alert-warning" role="alert">@passwordActionError</div>
+                }
+                else if (!string.IsNullOrWhiteSpace(passwordActionSuccess))
+                {
+                    <div class="alert alert-success" role="alert">@passwordActionSuccess</div>
+                }
+
+                <h3 class="profile-card__subtitle">Cambiar password</h3>
+                <p class="profile-card__hint">Para cuentas sociales (Google/Apple) usa la opcion de email de restablecimiento.</p>
+
+                <EditForm Model="passwordModel" OnValidSubmit="HandlePasswordUpdateAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label" for="profile-current-password">Password actual</label>
+                        <InputText id="profile-current-password" class="form-control" type="password" autocomplete="current-password" @bind-Value="passwordModel.CurrentPassword" />
+                        <ValidationMessage For="() => passwordModel.CurrentPassword" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="profile-new-password">Nueva password</label>
+                        <InputText id="profile-new-password" class="form-control" type="password" autocomplete="new-password" @bind-Value="passwordModel.NewPassword" />
+                        <ValidationMessage For="() => passwordModel.NewPassword" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="profile-confirm-password">Confirmar password</label>
+                        <InputText id="profile-confirm-password" class="form-control" type="password" autocomplete="new-password" @bind-Value="passwordModel.ConfirmPassword" />
+                        <ValidationMessage For="() => passwordModel.ConfirmPassword" />
+                    </div>
+
+                    <button class="btn btn-primary" type="submit" disabled="@(isUpdatingPassword || isSendingPasswordReset)">
+                        @(isUpdatingPassword ? "Actualizando..." : "Actualizar password")
+                    </button>
+                </EditForm>
+
+                <hr class="profile-divider" />
+
+                <h3 class="profile-card__subtitle">Restablecer por email</h3>
+                <p class="profile-card__hint">Recibiras un enlace para definir una nueva password.</p>
+                <button class="btn btn-outline-secondary" type="button" @onclick="SendPasswordResetEmailAsync" disabled="@(isSendingPasswordReset || IsPasswordResetCooldownActive)">
+                    @GetPasswordResetButtonLabel()
+                </button>
+            </section>
+
+            <section class="profile-card profile-card--extras">
+                <h2 class="profile-card__title">Info legal</h2>
+                <p class="profile-card__hint">Informacion y condiciones del contenido de PickDriver.</p>
+                <div class="profile-links">
+                    <a class="profile-link-card" href="licenses">
+                        <span>Licencias</span>
+                        <span aria-hidden="true">›</span>
+                    </a>
+                    <a class="profile-link-card" href="disclaimer">
+                        <span>Disclaimer</span>
+                        <span aria-hidden="true">›</span>
+                    </a>
+                </div>
+            </section>
+
+            <section class="profile-card profile-card--danger">
+                <h2 class="profile-card__title">Sesion y cuenta</h2>
+
+                @if (!string.IsNullOrWhiteSpace(accountActionError))
+                {
+                    <div class="alert alert-warning" role="alert">@accountActionError</div>
+                }
+
+                <div class="profile-danger-actions">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="LogoutAsync">Cerrar sesion</button>
+                    <button class="btn btn-outline-danger" type="button" @onclick="OpenDeleteDialog" disabled="@isDeletingAccount">
+                        @(isDeletingAccount ? "Eliminando..." : "Eliminar cuenta")
                     </button>
                 </div>
-            </div>
-        </EditForm>
-    </div>
+            </section>
+        </div>
+    }
+</section>
 
-    <div class="mt-4">
-        <h2 class="h5">Acciones</h2>
-        <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-outline-secondary" type="button" @onclick="LogoutAsync">Cerrar sesion</button>
+@if (showDeleteDialog)
+{
+    <div class="profile-modal-backdrop" @onclick="CloseDeleteDialog">
+        <div class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title" @onclick:stopPropagation>
+            <h2 id="delete-account-title">Eliminar cuenta</h2>
+            <p>Esta accion es permanente y no se puede deshacer.</p>
+            <p>Perderas tu perfil y todos los datos asociados a tu cuenta en PickDriver.</p>
+            <div class="profile-modal__actions">
+                <button class="btn btn-outline-secondary" type="button" @onclick="CloseDeleteDialog" disabled="@isDeletingAccount">Cancelar</button>
+                <button class="btn btn-danger" type="button" @onclick="ConfirmDeleteAccountAsync" disabled="@isDeletingAccount">
+                    @(isDeletingAccount ? "Eliminando..." : "Si, eliminar")
+                </button>
+            </div>
         </div>
     </div>
 }
@@ -76,10 +187,28 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
     private bool isAuthorized;
     private string? errorMessage;
     private UserPublic? profile;
+
     private readonly UpdateUsernameModel usernameModel = new();
+    private readonly ChangePasswordModel passwordModel = new();
+
     private bool isUpdatingUsername;
     private string? usernameUpdateError;
     private string? usernameUpdateSuccess;
+
+    private bool isUpdatingPassword;
+    private bool isSendingPasswordReset;
+    private string? passwordActionError;
+    private string? passwordActionSuccess;
+
+    private bool showDeleteDialog;
+    private bool isDeletingAccount;
+    private string? accountActionError;
+
+    private DateTimeOffset? passwordResetCooldownEndsAt;
+    private Timer? cooldownTimer;
+
+    private int PasswordResetCooldownRemainingSeconds => EmailCooldownService.GetRemainingSeconds(passwordResetCooldownEndsAt);
+    private bool IsPasswordResetCooldownActive => PasswordResetCooldownRemainingSeconds > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,12 +242,34 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
         isLoading = false;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        passwordResetCooldownEndsAt = await EmailCooldownService.GetEndsAtAsync(EmailCooldownType.PasswordReset);
+        StartCooldownTimer();
+        await InvokeAsync(StateHasChanged);
+    }
+
     private void RedirectToLogin()
     {
         var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
         var encoded = Uri.EscapeDataString(target);
         NavigationManager.NavigateTo($"/login?returnUrl={encoded}");
+    }
+
+    private string GetUserInitial()
+    {
+        if (string.IsNullOrWhiteSpace(profile?.Username))
+        {
+            return "U";
+        }
+
+        return profile.Username.Trim()[0].ToString().ToUpperInvariant();
     }
 
     private async Task LogoutAsync()
@@ -165,6 +316,127 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
         usernameUpdateSuccess = "Nombre de usuario actualizado.";
     }
 
+    private async Task HandlePasswordUpdateAsync()
+    {
+        passwordActionError = null;
+        passwordActionSuccess = null;
+
+        if (string.IsNullOrWhiteSpace(passwordModel.CurrentPassword))
+        {
+            await SendPasswordResetEmailAsync();
+            return;
+        }
+
+        isUpdatingPassword = true;
+
+        var result = await AuthService.UpdatePasswordAsync(new UpdatePasswordRequest
+        {
+            CurrentPassword = passwordModel.CurrentPassword,
+            NewPassword = passwordModel.NewPassword
+        });
+
+        isUpdatingPassword = false;
+
+        if (!result.Success)
+        {
+            passwordActionError = result.ErrorMessage ?? "No se pudo actualizar la password.";
+            return;
+        }
+
+        passwordModel.CurrentPassword = string.Empty;
+        passwordModel.NewPassword = string.Empty;
+        passwordModel.ConfirmPassword = string.Empty;
+        passwordActionSuccess = "Password actualizada correctamente.";
+    }
+
+    private async Task SendPasswordResetEmailAsync()
+    {
+        passwordActionError = null;
+        passwordActionSuccess = null;
+
+        if (IsPasswordResetCooldownActive)
+        {
+            passwordActionError = $"Espera {EmailCooldownService.Format(PasswordResetCooldownRemainingSeconds)} antes de reenviar el email.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(profile?.Email))
+        {
+            passwordActionError = "No se encontro un email para esta cuenta.";
+            return;
+        }
+
+        isSendingPasswordReset = true;
+
+        var result = await AuthService.ForgotPasswordAsync(new ForgotPasswordRequest
+        {
+            Email = profile.Email.Trim()
+        });
+
+        isSendingPasswordReset = false;
+
+        if (!result.Success)
+        {
+            passwordActionError = result.ErrorMessage ?? "No se pudo enviar el email de restablecimiento.";
+            return;
+        }
+
+        passwordResetCooldownEndsAt = await EmailCooldownService.StartAsync(EmailCooldownType.PasswordReset);
+        passwordActionSuccess = string.IsNullOrWhiteSpace(result.Data?.Message)
+            ? "Se envio el email de restablecimiento si la cuenta existe."
+            : result.Data.Message;
+    }
+
+    private string GetPasswordResetButtonLabel()
+    {
+        if (isSendingPasswordReset)
+        {
+            return "Enviando...";
+        }
+
+        if (IsPasswordResetCooldownActive)
+        {
+            return $"Reenviar en {EmailCooldownService.Format(PasswordResetCooldownRemainingSeconds)}";
+        }
+
+        return "Enviar email de restablecimiento";
+    }
+
+    private void OpenDeleteDialog()
+    {
+        accountActionError = null;
+        showDeleteDialog = true;
+    }
+
+    private void CloseDeleteDialog()
+    {
+        if (isDeletingAccount)
+        {
+            return;
+        }
+
+        showDeleteDialog = false;
+    }
+
+    private async Task ConfirmDeleteAccountAsync()
+    {
+        isDeletingAccount = true;
+        accountActionError = null;
+
+        var result = await AuthService.DeleteAccountAsync();
+        isDeletingAccount = false;
+
+        if (!result.Success)
+        {
+            accountActionError = result.ErrorMessage ?? "No se pudo eliminar la cuenta.";
+            return;
+        }
+
+        showDeleteDialog = false;
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/");
+    }
+
     private async Task UpdateSessionAsync(UserPublic updatedProfile)
     {
         var session = await AuthSessionStore.GetAsync();
@@ -177,11 +449,51 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
         await AuthStateProvider.SetSessionAsync(session);
     }
 
+    private void StartCooldownTimer()
+    {
+        cooldownTimer?.Dispose();
+        cooldownTimer = new Timer(_ =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                if (!passwordResetCooldownEndsAt.HasValue)
+                {
+                    return;
+                }
+
+                if (PasswordResetCooldownRemainingSeconds == 0 && passwordResetCooldownEndsAt.HasValue)
+                {
+                    passwordResetCooldownEndsAt = null;
+                    await EmailCooldownService.ClearAsync(EmailCooldownType.PasswordReset);
+                }
+
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose()
+    {
+        cooldownTimer?.Dispose();
+    }
+
     private sealed class UpdateUsernameModel
     {
         [Required(ErrorMessage = "El usuario es obligatorio.")]
         [StringLength(20, MinimumLength = 3, ErrorMessage = "El usuario debe tener entre 3 y 20 caracteres.")]
         [RegularExpression("^[A-Za-z0-9._-]+$", ErrorMessage = "El usuario solo puede tener letras, numeros, puntos, guiones y guiones bajos.")]
         public string Username { get; set; } = string.Empty;
+    }
+
+    private sealed class ChangePasswordModel
+    {
+        [Required(ErrorMessage = "La nueva password es obligatoria.")]
+        [MinLength(8, ErrorMessage = "La password debe tener al menos 8 caracteres.")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Compare(nameof(NewPassword), ErrorMessage = "Las passwords no coinciden.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        public string CurrentPassword { get; set; } = string.Empty;
     }
 }

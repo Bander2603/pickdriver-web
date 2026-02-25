@@ -193,6 +193,62 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task UpdatePasswordAsync_CallsExpectedEndpoint()
+    {
+        string? path = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore(new AuthSession
+        {
+            Token = "token",
+            User = new UserPublic { Id = 1, Username = "demo", Email = "demo@example.com" }
+        });
+        var authProvider = new PickDriverAuthStateProvider(sessionStore);
+        var apiClient = new ApiClient(client, sessionStore);
+        var authService = new AuthService(apiClient, authProvider);
+
+        var result = await authService.UpdatePasswordAsync(new UpdatePasswordRequest
+        {
+            CurrentPassword = "old-password",
+            NewPassword = "new-password"
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("/auth/password", path);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_CallsExpectedEndpoint()
+    {
+        string? path = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            path = request.RequestUri?.AbsolutePath;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore(new AuthSession
+        {
+            Token = "token",
+            User = new UserPublic { Id = 1, Username = "demo", Email = "demo@example.com" }
+        });
+        var authProvider = new PickDriverAuthStateProvider(sessionStore);
+        var apiClient = new ApiClient(client, sessionStore);
+        var authService = new AuthService(apiClient, authProvider);
+
+        var result = await authService.DeleteAccountAsync();
+
+        Assert.True(result.Success);
+        Assert.Equal("/auth/account", path);
+    }
+
+    [Fact]
     public async Task LogoutAsync_ClearsSession()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));

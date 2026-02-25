@@ -26,6 +26,12 @@ public sealed class AuthService
     public Task<ApiResult<AuthMessageResponse>> ResetPasswordAsync(ResetPasswordRequest request)
         => _apiClient.PostAsync<ResetPasswordRequest, AuthMessageResponse>("auth/reset-password", request);
 
+    public Task<ApiResult<object?>> UpdatePasswordAsync(UpdatePasswordRequest request)
+        => _apiClient.PutAsync("auth/password", request, auth: true);
+
+    public Task<ApiResult<object?>> DeleteAccountAsync()
+        => _apiClient.DeleteAsync("auth/account", auth: true);
+
     public async Task<ApiResult<LoginResponse>> LoginAsync(LoginRequest request)
     {
         var result = await _apiClient.PostAsync<LoginRequest, LoginResponse>("auth/login", request);

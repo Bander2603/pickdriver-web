@@ -7,6 +7,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IOptions<GoogleAuthOptions> GoogleOptions
+@inject EmailCooldownService EmailCooldownService
 
 <PageTitle>Pick Driver</PageTitle>
 
@@ -36,8 +37,8 @@
     }
 
     <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-outline-secondary" type="button" disabled="@isResendingVerification" @onclick="HandleResendVerificationAsync">
-            @(isResendingVerification ? "Reenviando..." : "Reenviar verificacion")
+        <button class="btn btn-outline-secondary" type="button" disabled="@(isResendingVerification || IsVerificationCooldownActive)" @onclick="HandleResendVerificationAsync">
+            @GetResendVerificationButtonLabel()
         </button>
         <a class="btn btn-primary" href="login">Iniciar sesion</a>
     </div>
@@ -118,9 +119,13 @@ else
     private string? errorMessage;
     private string? infoMessage;
     private DotNetObjectReference<Register>? googleRef;
+    private DateTimeOffset? verificationCooldownEndsAt;
+    private Timer? cooldownTimer;
 
     private const string GoogleButtonId = "google-register-button";
     private bool IsGoogleEnabled => !string.IsNullOrWhiteSpace(GoogleOptions.Value.ClientId);
+    private int VerificationCooldownRemainingSeconds => EmailCooldownService.GetRemainingSeconds(verificationCooldownEndsAt);
+    private bool IsVerificationCooldownActive => VerificationCooldownRemainingSeconds > 0;
 
     private async Task HandleRegister()
     {
@@ -142,6 +147,10 @@ else
             isSuccess = true;
             registeredEmail = model.Email.Trim();
             verificationEmailSent = result.Data.VerificationEmailSent;
+            if (verificationEmailSent)
+            {
+                verificationCooldownEndsAt = await EmailCooldownService.StartAsync(EmailCooldownType.ResendVerification);
+            }
             return;
         }
 
@@ -150,6 +159,12 @@ else
 
     private async Task HandleResendVerificationAsync()
     {
+        if (IsVerificationCooldownActive)
+        {
+            infoMessage = $"Espera {EmailCooldownService.Format(VerificationCooldownRemainingSeconds)} para volver a reenviar la verificacion.";
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(registeredEmail))
         {
             return;
@@ -168,6 +183,7 @@ else
 
         if (result.Success)
         {
+            verificationCooldownEndsAt = await EmailCooldownService.StartAsync(EmailCooldownType.ResendVerification);
             infoMessage = string.IsNullOrWhiteSpace(result.Data?.Message)
                 ? "Si la cuenta existe y esta pendiente, se envio otro email de verificacion."
                 : result.Data.Message;
@@ -197,7 +213,15 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && IsGoogleEnabled)
+        if (!firstRender)
+        {
+            return;
+        }
+
+        verificationCooldownEndsAt = await EmailCooldownService.GetEndsAtAsync(EmailCooldownType.ResendVerification);
+        StartCooldownTimer();
+
+        if (IsGoogleEnabled)
         {
             googleRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("pickdriverGoogleAuth.initialize", GoogleOptions.Value.ClientId, googleRef);
@@ -237,6 +261,45 @@ else
             googleRef.Dispose();
         }
 
+        cooldownTimer?.Dispose();
         await Task.CompletedTask;
+    }
+
+    private string GetResendVerificationButtonLabel()
+    {
+        if (isResendingVerification)
+        {
+            return "Reenviando...";
+        }
+
+        if (IsVerificationCooldownActive)
+        {
+            return $"Reenviar en {EmailCooldownService.Format(VerificationCooldownRemainingSeconds)}";
+        }
+
+        return "Reenviar verificacion";
+    }
+
+    private void StartCooldownTimer()
+    {
+        cooldownTimer?.Dispose();
+        cooldownTimer = new Timer(_ =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                if (!verificationCooldownEndsAt.HasValue)
+                {
+                    return;
+                }
+
+                if (VerificationCooldownRemainingSeconds == 0 && verificationCooldownEndsAt.HasValue)
+                {
+                    verificationCooldownEndsAt = null;
+                    await EmailCooldownService.ClearAsync(EmailCooldownType.ResendVerification);
+                }
+
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 }

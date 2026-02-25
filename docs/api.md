@@ -111,6 +111,9 @@ Notificaciones:
 - PUT /api/auth/username (auth)
   - Req: { "username": "nuevo_nombre" }
   - Res: UserPublic
+- DELETE /api/auth/account (auth)
+  - Res: 200 OK
+  - Nota: elimina/desactiva la cuenta de forma irreversible y limpia membresias pendientes.
 
 ### Races (publico)
 - GET /api/races

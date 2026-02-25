@@ -17,6 +17,7 @@ builder.Services.AddScoped<IAuthSessionStore, AuthSessionStore>();
 builder.Services.AddScoped<PickDriverAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<PickDriverAuthStateProvider>());
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<EmailCooldownService>();
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection("Api"));
 builder.Services.Configure<GoogleAuthOptions>(options =>
 {

@@ -66,6 +66,14 @@ else
                                 <span class="race-details__value">@FormatKilometers(selectedRace.CircuitData?.RaceDistance)</span>
                             </div>
                             <div class="race-details__row">
+                                <span class="race-details__label">Vueltas</span>
+                                <span class="race-details__value">@FormatLaps(selectedRace.CircuitData?.Laps)</span>
+                            </div>
+                            <div class="race-details__row">
+                                <span class="race-details__label">Primer Gran Premio</span>
+                                <span class="race-details__value">@FormatFirstGp(selectedRace.CircuitData?.FirstGp)</span>
+                            </div>
+                            <div class="race-details__row">
                                 <span class="race-details__label">Record de vuelta</span>
                                 <span class="race-details__value">@FormatLapRecord(selectedRace.CircuitData)</span>
                             </div>
@@ -266,6 +274,16 @@ else
     private static string FormatKilometers(double? value)
     {
         return value.HasValue ? $"{value.Value:0.###} km" : "Por confirmar";
+    }
+
+    private static string FormatLaps(int? value)
+    {
+        return value.HasValue ? value.Value.ToString() : "Por confirmar";
+    }
+
+    private static string FormatFirstGp(int? value)
+    {
+        return value.HasValue ? value.Value.ToString() : "Por confirmar";
     }
 
     private static string FormatLapRecord(CircuitData? data)

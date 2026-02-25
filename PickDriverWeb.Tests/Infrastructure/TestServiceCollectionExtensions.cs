@@ -26,5 +26,6 @@ internal static class TestServiceCollectionExtensions
             new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") },
             sp.GetRequiredService<IAuthSessionStore>()));
         services.AddSingleton<AuthService>();
+        services.AddSingleton<EmailCooldownService>();
     }
 }

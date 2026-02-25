@@ -7,6 +7,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IOptions<GoogleAuthOptions> GoogleOptions
+@inject EmailCooldownService EmailCooldownService
 
 <PageTitle>Pick Driver</PageTitle>
 
@@ -52,8 +53,8 @@
     <div class="alert alert-warning mt-3" role="alert">
         Tu cuenta aun no esta verificada.
         <div class="mt-2">
-            <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@isResendingVerification" @onclick="HandleResendVerificationAsync">
-                @(isResendingVerification ? "Reenviando..." : "Reenviar email de verificacion")
+            <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(isResendingVerification || IsVerificationCooldownActive)" @onclick="HandleResendVerificationAsync">
+                @GetResendVerificationButtonLabel()
             </button>
         </div>
     </div>
@@ -93,9 +94,13 @@
     private string? errorMessage;
     private string? infoMessage;
     private DotNetObjectReference<Login>? googleRef;
+    private DateTimeOffset? verificationCooldownEndsAt;
+    private Timer? cooldownTimer;
 
     private const string GoogleButtonId = "google-login-button";
     private bool IsGoogleEnabled => !string.IsNullOrWhiteSpace(GoogleOptions.Value.ClientId);
+    private int VerificationCooldownRemainingSeconds => EmailCooldownService.GetRemainingSeconds(verificationCooldownEndsAt);
+    private bool IsVerificationCooldownActive => VerificationCooldownRemainingSeconds > 0;
 
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
@@ -133,6 +138,12 @@
 
     private async Task HandleResendVerificationAsync()
     {
+        if (IsVerificationCooldownActive)
+        {
+            infoMessage = $"Espera {EmailCooldownService.Format(VerificationCooldownRemainingSeconds)} para volver a reenviar la verificacion.";
+            return;
+        }
+
         var email = model.Email.Trim();
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -153,6 +164,7 @@
 
         if (result.Success)
         {
+            verificationCooldownEndsAt = await EmailCooldownService.StartAsync(EmailCooldownType.ResendVerification);
             infoMessage = string.IsNullOrWhiteSpace(result.Data?.Message)
                 ? "Si la cuenta existe y esta pendiente, se envio un email de verificacion."
                 : result.Data.Message;
@@ -174,7 +186,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && IsGoogleEnabled)
+        if (!firstRender)
+        {
+            return;
+        }
+
+        verificationCooldownEndsAt = await EmailCooldownService.GetEndsAtAsync(EmailCooldownType.ResendVerification);
+        StartCooldownTimer();
+
+        if (IsGoogleEnabled)
         {
             googleRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("pickdriverGoogleAuth.initialize", GoogleOptions.Value.ClientId, googleRef);
@@ -222,6 +242,45 @@
             googleRef.Dispose();
         }
 
+        cooldownTimer?.Dispose();
         await Task.CompletedTask;
+    }
+
+    private string GetResendVerificationButtonLabel()
+    {
+        if (isResendingVerification)
+        {
+            return "Reenviando...";
+        }
+
+        if (IsVerificationCooldownActive)
+        {
+            return $"Reenviar en {EmailCooldownService.Format(VerificationCooldownRemainingSeconds)}";
+        }
+
+        return "Reenviar email de verificacion";
+    }
+
+    private void StartCooldownTimer()
+    {
+        cooldownTimer?.Dispose();
+        cooldownTimer = new Timer(_ =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                if (!verificationCooldownEndsAt.HasValue)
+                {
+                    return;
+                }
+
+                if (VerificationCooldownRemainingSeconds == 0 && verificationCooldownEndsAt.HasValue)
+                {
+                    verificationCooldownEndsAt = null;
+                    await EmailCooldownService.ClearAsync(EmailCooldownType.ResendVerification);
+                }
+
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 }
