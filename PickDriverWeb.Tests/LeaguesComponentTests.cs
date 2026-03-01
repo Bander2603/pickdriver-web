@@ -72,6 +72,48 @@ public sealed class LeaguesComponentTests
         });
     }
 
+    [Fact]
+    public async Task WhenAuthEndpointReturns401_LogsOutAndRedirectsToLogin()
+    {
+        using var ctx = new TestContext();
+
+        var sessionStore = new FakeAuthSessionStore(new AuthSession
+        {
+            Token = "expired-token",
+            User = new UserPublic { Id = 1, Username = "demo", Email = "demo@example.com" }
+        });
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri?.AbsolutePath.Trim('/') ?? string.Empty;
+            return path switch
+            {
+                "leagues/my" => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                {
+                    Content = JsonContent.Create(new ApiError { Error = true, Reason = "Token expirado" }, options: ApiJson.Options)
+                },
+                "drivers" => Ok(new List<Driver>()),
+                "f1/teams" => Ok(new List<F1Team>()),
+                _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+            };
+        });
+
+        ctx.Services.AddPickDriverTestServices(handler, sessionStore);
+
+        var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        nav.NavigateTo("/leagues");
+
+        var cut = ctx.RenderComponent<Leagues>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("/login?returnUrl=%2Fleagues", nav.Uri);
+        });
+
+        var session = await sessionStore.GetAsync();
+        Assert.Null(session);
+    }
+
     private static HttpResponseMessage Ok<T>(T payload)
     {
         return new HttpResponseMessage(HttpStatusCode.OK)

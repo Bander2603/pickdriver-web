@@ -135,4 +135,43 @@ public sealed class ApiClientTests
         Assert.False(result.Success);
         Assert.Equal("plain error", result.ErrorMessage);
     }
+
+    [Fact]
+    public async Task GetAsync_ClearsSession_On401_WhenAuthRequested()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore(new AuthSession
+        {
+            Token = "expired-token",
+            User = new UserPublic { Id = 1, Username = "demo", Email = "demo@example.com" }
+        });
+        var apiClient = new ApiClient(client, sessionStore);
+
+        var result = await apiClient.GetAsync<UserPublic>("auth/profile", auth: true);
+
+        Assert.False(result.Success);
+        var session = await sessionStore.GetAsync();
+        Assert.Null(session);
+    }
+
+    [Fact]
+    public async Task GetAsync_DoesNotClearSession_On403_WhenAuthRequested()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var sessionStore = new FakeAuthSessionStore(new AuthSession
+        {
+            Token = "valid-token",
+            User = new UserPublic { Id = 1, Username = "demo", Email = "demo@example.com" }
+        });
+        var apiClient = new ApiClient(client, sessionStore);
+
+        var result = await apiClient.GetAsync<UserPublic>("auth/profile", auth: true);
+
+        Assert.False(result.Success);
+        var session = await sessionStore.GetAsync();
+        Assert.NotNull(session);
+        Assert.Equal("valid-token", session!.Token);
+    }
 }

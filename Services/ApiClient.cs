@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Components;
 using PickDriverWeb.Models;
 using PickDriverWeb.State;
 
@@ -11,11 +12,19 @@ public sealed class ApiClient
 {
     private readonly HttpClient _http;
     private readonly IAuthSessionStore _sessionStore;
+    private readonly PickDriverAuthStateProvider? _authStateProvider;
+    private readonly NavigationManager? _navigationManager;
 
-    public ApiClient(HttpClient http, IAuthSessionStore sessionStore)
+    public ApiClient(
+        HttpClient http,
+        IAuthSessionStore sessionStore,
+        PickDriverAuthStateProvider? authStateProvider = null,
+        NavigationManager? navigationManager = null)
     {
         _http = http;
         _sessionStore = sessionStore;
+        _authStateProvider = authStateProvider;
+        _navigationManager = navigationManager;
     }
 
     public Task<ApiResult<TResponse>> GetAsync<TResponse>(string path, bool auth = false)
@@ -80,41 +89,76 @@ public sealed class ApiClient
             };
         }
 
-        if (response.IsSuccessStatusCode)
+        using (response)
         {
-            if (response.StatusCode == HttpStatusCode.NoContent || response.Content.Headers.ContentLength == 0)
+            if (response.IsSuccessStatusCode)
             {
-                return new ApiResult<TResponse> { Success = true, StatusCode = (int)response.StatusCode };
+                if (response.StatusCode == HttpStatusCode.NoContent || response.Content.Headers.ContentLength == 0)
+                {
+                    return new ApiResult<TResponse> { Success = true, StatusCode = (int)response.StatusCode };
+                }
+
+                try
+                {
+                    var data = await response.Content.ReadFromJsonAsync<TResponse>(ApiJson.Options);
+                    return new ApiResult<TResponse>
+                    {
+                        Success = true,
+                        Data = data,
+                        StatusCode = (int)response.StatusCode
+                    };
+                }
+                catch (JsonException)
+                {
+                    return new ApiResult<TResponse>
+                    {
+                        Success = false,
+                        ErrorMessage = "Respuesta inesperada del servidor.",
+                        StatusCode = (int)response.StatusCode
+                    };
+                }
             }
 
-            try
+            if (auth && response.StatusCode == HttpStatusCode.Unauthorized)
             {
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(ApiJson.Options);
-                return new ApiResult<TResponse>
-                {
-                    Success = true,
-                    Data = data,
-                    StatusCode = (int)response.StatusCode
-                };
+                await HandleUnauthorizedAsync();
             }
-            catch (JsonException)
+
+            var errorMessage = await TryReadErrorAsync(response);
+            return new ApiResult<TResponse>
             {
-                return new ApiResult<TResponse>
-                {
-                    Success = false,
-                    ErrorMessage = "Respuesta inesperada del servidor.",
-                    StatusCode = (int)response.StatusCode
-                };
-            }
+                Success = false,
+                ErrorMessage = errorMessage,
+                StatusCode = (int)response.StatusCode
+            };
+        }
+    }
+
+    private async Task HandleUnauthorizedAsync()
+    {
+        if (_authStateProvider is not null)
+        {
+            await _authStateProvider.SetSessionAsync(null);
+        }
+        else
+        {
+            await _sessionStore.SetAsync(null);
         }
 
-        var errorMessage = await TryReadErrorAsync(response);
-        return new ApiResult<TResponse>
+        if (_navigationManager is null)
         {
-            Success = false,
-            ErrorMessage = errorMessage,
-            StatusCode = (int)response.StatusCode
-        };
+            return;
+        }
+
+        var relative = _navigationManager.ToBaseRelativePath(_navigationManager.Uri);
+        if (relative.StartsWith("login", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var target = string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+        var encoded = Uri.EscapeDataString(target);
+        _navigationManager.NavigateTo($"/login?returnUrl={encoded}");
     }
 
     private static async Task<string?> TryReadErrorAsync(HttpResponseMessage response)

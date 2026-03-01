@@ -24,7 +24,9 @@ internal static class TestServiceCollectionExtensions
         services.AddSingleton<IOptions<GoogleAuthOptions>>(Microsoft.Extensions.Options.Options.Create(options));
         services.AddSingleton<ApiClient>(sp => new ApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") },
-            sp.GetRequiredService<IAuthSessionStore>()));
+            sp.GetRequiredService<IAuthSessionStore>(),
+            sp.GetRequiredService<PickDriverAuthStateProvider>(),
+            sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()));
         services.AddSingleton<AuthService>();
         services.AddSingleton<EmailCooldownService>();
     }

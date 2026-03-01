@@ -1,4 +1,5 @@
 @page "/leagues"
+@implements IDisposable
 @using System.ComponentModel.DataAnnotations
 @inject ApiClient ApiClient
 @inject IAuthSessionStore AuthSessionStore
@@ -252,6 +253,8 @@ else
     private int userId;
     private int maxPlayersLimit;
     private const int MaxCreatedLeagues = 3;
+    private bool disposed;
+    private readonly CancellationTokenSource membersLoadCts = new();
     private readonly List<LeaguePublic> leagues = new();
     private readonly HashSet<int> deletingLeagueIds = new();
     private readonly Dictionary<int, int> leagueMemberCounts = new();
@@ -282,7 +285,7 @@ else
         if (leaguesResult.Success && leaguesResult.Data is not null)
         {
             leagues.AddRange(leaguesResult.Data);
-            _ = LoadLeagueMembersAsync(leagues);
+            _ = LoadLeagueMembersSafelyAsync(leagues, membersLoadCts.Token);
         }
         else
         {
@@ -446,7 +449,7 @@ else
             if (leagues.All(item => item.Id != result.Data.Id))
             {
                 leagues.Insert(0, result.Data);
-                _ = LoadLeagueMemberCountAsync(result.Data);
+                _ = LoadLeagueMemberCountSafelyAsync(result.Data, membersLoadCts.Token);
             }
 
             showJoinModal = false;
@@ -644,27 +647,85 @@ else
         return 0;
     }
 
-    private async Task LoadLeagueMembersAsync(IEnumerable<LeaguePublic> leagueList)
-    {
-        var tasks = leagueList.Select(LoadLeagueMemberCountAsync).ToList();
-        await Task.WhenAll(tasks);
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task LoadLeagueMemberCountAsync(LeaguePublic league)
+    private async Task LoadLeagueMembersSafelyAsync(IEnumerable<LeaguePublic> leagueList, CancellationToken cancellationToken)
     {
         try
         {
+            await LoadLeagueMembersAsync(leagueList, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task LoadLeagueMemberCountSafelyAsync(LeaguePublic league, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await LoadLeagueMemberCountAsync(league, cancellationToken);
+            if (disposed || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task LoadLeagueMembersAsync(IEnumerable<LeaguePublic> leagueList, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var tasks = leagueList.Select(league => LoadLeagueMemberCountAsync(league, cancellationToken)).ToList();
+        await Task.WhenAll(tasks);
+        if (disposed || cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadLeagueMemberCountAsync(LeaguePublic league, CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = await ApiClient.GetAsync<List<UserPublic>>($"leagues/{league.Id}/members", auth: true);
-            if (result.Success && result.Data is not null)
+            if (!cancellationToken.IsCancellationRequested && result.Success && result.Data is not null)
             {
                 leagueMemberCounts[league.Id] = result.Data.Count;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
             // Ignore failures to keep the list responsive.
         }
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        membersLoadCts.Cancel();
+        membersLoadCts.Dispose();
     }
 
     private sealed class CreateLeagueModel

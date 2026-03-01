@@ -206,6 +206,7 @@
 
     private DateTimeOffset? passwordResetCooldownEndsAt;
     private Timer? cooldownTimer;
+    private bool disposed;
 
     private int PasswordResetCooldownRemainingSeconds => EmailCooldownService.GetRemainingSeconds(passwordResetCooldownEndsAt);
     private bool IsPasswordResetCooldownActive => PasswordResetCooldownRemainingSeconds > 0;
@@ -452,11 +453,21 @@
     private void StartCooldownTimer()
     {
         cooldownTimer?.Dispose();
-        cooldownTimer = new Timer(_ =>
+        cooldownTimer = new Timer(_ => _ = HandleCooldownTickAsync(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private async Task HandleCooldownTickAsync()
+    {
+        if (disposed)
         {
-            _ = InvokeAsync(async () =>
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(async () =>
             {
-                if (!passwordResetCooldownEndsAt.HasValue)
+                if (disposed || !passwordResetCooldownEndsAt.HasValue)
                 {
                     return;
                 }
@@ -469,11 +480,18 @@
 
                 StateHasChanged();
             });
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     public void Dispose()
     {
+        disposed = true;
         cooldownTimer?.Dispose();
     }
 

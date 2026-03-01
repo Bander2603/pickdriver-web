@@ -121,6 +121,7 @@ else
     private DotNetObjectReference<Register>? googleRef;
     private DateTimeOffset? verificationCooldownEndsAt;
     private Timer? cooldownTimer;
+    private bool disposed;
 
     private const string GoogleButtonId = "google-register-button";
     private bool IsGoogleEnabled => !string.IsNullOrWhiteSpace(GoogleOptions.Value.ClientId);
@@ -256,6 +257,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (googleRef is not null)
         {
             googleRef.Dispose();
@@ -283,11 +285,21 @@ else
     private void StartCooldownTimer()
     {
         cooldownTimer?.Dispose();
-        cooldownTimer = new Timer(_ =>
+        cooldownTimer = new Timer(_ => _ = HandleCooldownTickAsync(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private async Task HandleCooldownTickAsync()
+    {
+        if (disposed)
         {
-            _ = InvokeAsync(async () =>
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(async () =>
             {
-                if (!verificationCooldownEndsAt.HasValue)
+                if (disposed || !verificationCooldownEndsAt.HasValue)
                 {
                     return;
                 }
@@ -300,6 +312,12 @@ else
 
                 StateHasChanged();
             });
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 }

@@ -639,6 +639,7 @@ else
     private bool hasAutopickSaved;
     private bool autopickLoaded;
     private bool isDraftRefreshing;
+    private bool disposed;
     private const int DraftPollingIntervalSeconds = 60;
     private CancellationTokenSource? draftPollingCts;
     private Task? draftPollingTask;
@@ -776,7 +777,7 @@ else
         await LoadAutopickSummaryAsync();
 
         isLoading = false;
-        _ = LoadSeasonBansUsageAsync();
+        _ = LoadSeasonBansUsageSafelyAsync();
         EnsureDraftPollingStarted();
     }
 
@@ -1800,24 +1801,36 @@ else
     private async Task RunDraftPollingAsync(CancellationToken token)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(DraftPollingIntervalSeconds));
-        while (await timer.WaitForNextTickAsync(token))
+        try
         {
-            if (token.IsCancellationRequested)
+            while (await timer.WaitForNextTickAsync(token))
             {
-                return;
-            }
+                if (token.IsCancellationRequested || disposed)
+                {
+                    return;
+                }
 
-            if (activeTab != LeagueTab.Draft || draftRace is null)
-            {
-                continue;
-            }
+                if (activeTab != LeagueTab.Draft || draftRace is null)
+                {
+                    continue;
+                }
 
-            if (isDraftRefreshing || isSubmittingPick || isSubmittingBan)
-            {
-                continue;
-            }
+                if (isDraftRefreshing || isSubmittingPick || isSubmittingBan)
+                {
+                    continue;
+                }
 
-            await InvokeAsync(RefreshDraftAsync);
+                await InvokeAsync(RefreshDraftAsync);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 
@@ -1836,7 +1849,36 @@ else
         finally
         {
             isDraftRefreshing = false;
-            StateHasChanged();
+            if (!disposed)
+            {
+                try
+                {
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+        }
+    }
+
+    private async Task LoadSeasonBansUsageSafelyAsync()
+    {
+        try
+        {
+            await LoadSeasonBansUsageAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 
@@ -1849,48 +1891,56 @@ else
 
         isLoadingSeasonBans = true;
         seasonBansUsedByUser.Clear();
-
-        var initialRound = league?.InitialRaceRound ?? 1;
-        var maxRound = draftRace.Round;
-        var targetRaces = allRaces
-            .Where(race => race.Round >= initialRound && race.Round <= maxRound)
-            .ToList();
-
-        if (targetRaces.Count == 0)
+        try
         {
+            var initialRound = league?.InitialRaceRound ?? 1;
+            var maxRound = draftRace.Round;
+            var targetRaces = allRaces
+                .Where(race => race.Round >= initialRound && race.Round <= maxRound)
+                .ToList();
+
+            if (targetRaces.Count == 0)
+            {
+                seasonBansLoaded = true;
+                return;
+            }
+
+            var tasks = targetRaces
+                .Select(race => ApiClient.GetAsync<RaceDraft>($"leagues/{LeagueId}/draft/{race.Id}", auth: true))
+                .ToList();
+
+            var results = await Task.WhenAll(tasks);
+            foreach (var result in results)
+            {
+                if (!result.Success || result.Data is null)
+                {
+                    continue;
+                }
+
+                var counts = BuildBansUsedByUser(result.Data);
+                foreach (var entry in counts)
+                {
+                    seasonBansUsedByUser[entry.Key] = seasonBansUsedByUser.TryGetValue(entry.Key, out var current)
+                        ? current + entry.Value
+                        : entry.Value;
+                }
+            }
+
             seasonBansLoaded = true;
-            isLoadingSeasonBans = false;
-            return;
+            if (!disposed)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
         }
-
-        var tasks = targetRaces
-            .Select(race => ApiClient.GetAsync<RaceDraft>($"leagues/{LeagueId}/draft/{race.Id}", auth: true))
-            .ToList();
-
-        var results = await Task.WhenAll(tasks);
-        foreach (var result in results)
+        finally
         {
-            if (!result.Success || result.Data is null)
-            {
-                continue;
-            }
-
-            var counts = BuildBansUsedByUser(result.Data);
-            foreach (var entry in counts)
-            {
-                seasonBansUsedByUser[entry.Key] = seasonBansUsedByUser.TryGetValue(entry.Key, out var current)
-                    ? current + entry.Value
-                    : entry.Value;
-            }
+            isLoadingSeasonBans = false;
         }
-
-        seasonBansLoaded = true;
-        isLoadingSeasonBans = false;
-        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (draftPollingCts is null)
         {
             return;
@@ -1909,6 +1959,8 @@ else
         }
 
         draftPollingCts.Dispose();
+        draftPollingCts = null;
+        draftPollingTask = null;
     }
 
     private void SetStandingsMode(bool showTeams)
