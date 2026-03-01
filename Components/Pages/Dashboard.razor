@@ -5,6 +5,7 @@
 @inject IAuthSessionStore AuthSessionStore
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Pick Driver</PageTitle>
 
@@ -211,6 +212,7 @@ else
     private string? leaguesError;
     private string? standingsError;
     private bool leaguePositionsPartial;
+    private TimeZoneInfo browserTimeZone = TimeZoneInfo.Local;
     private readonly List<LeagueDashboardItem> leagueItems = new();
     private readonly List<DriverStanding> topDrivers = new();
     private readonly List<TeamStanding> topTeams = new();
@@ -282,6 +284,16 @@ else
         }
 
         isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await ResolveBrowserTimeZoneAsync();
     }
 
     private async Task LoadLeaguePositionsAsync(List<LeaguePublic> leagues, int userId)
@@ -417,14 +429,50 @@ else
         return false;
     }
 
-    private static string FormatRaceDate(DateTimeOffset? date)
+    private string FormatRaceDate(DateTimeOffset? date)
     {
         if (!date.HasValue)
         {
             return "Por confirmar";
         }
 
-        return date.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+        var browserLocal = TimeZoneInfo.ConvertTime(date.Value, browserTimeZone);
+        return browserLocal.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private async Task ResolveBrowserTimeZoneAsync()
+    {
+        try
+        {
+            var timeZoneId = await JSRuntime.InvokeAsync<string?>("pickdriverRaces.getBrowserTimeZone");
+            if (string.IsNullOrWhiteSpace(timeZoneId))
+            {
+                return;
+            }
+
+            var resolved = ResolveTimeZone(timeZoneId);
+            if (!string.Equals(browserTimeZone.Id, resolved.Id, StringComparison.Ordinal))
+            {
+                browserTimeZone = resolved;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // Fall back to server-local time zone if browser zone is unavailable.
+        }
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
     }
 
     private static string FormatDriverName(DriverStanding driver)

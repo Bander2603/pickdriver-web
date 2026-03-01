@@ -1,4 +1,11 @@
 window.pickdriverRaces = {
+    getBrowserTimeZone: function () {
+        try {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        } catch {
+            return null;
+        }
+    },
     getRowEndIndex: function (element, index) {
         if (!element) {
             return index || 0;

@@ -133,6 +133,7 @@ else
     private bool shouldScrollToDetails;
     private bool isClosing;
     private string? detailsKey;
+    private TimeZoneInfo browserTimeZone = TimeZoneInfo.Local;
     private static readonly string AssetVersion = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
 
     protected override async Task OnInitializedAsync()
@@ -156,15 +157,15 @@ else
         return string.IsNullOrWhiteSpace(race.Country) ? race.Name : race.Country;
     }
 
-    private static string GetRaceDateRange(Race race)
+    private string GetRaceDateRange(Race race)
     {
         if (!race.Fp1Time.HasValue || !race.RaceTime.HasValue)
         {
             return "Por confirmar";
         }
 
-        var fp1Date = race.Fp1Time.Value.ToLocalTime();
-        var raceDate = race.RaceTime.Value.ToLocalTime();
+        var fp1Date = ToBrowserLocalTime(race.Fp1Time.Value);
+        var raceDate = ToBrowserLocalTime(race.RaceTime.Value);
         var monthCode = GetMonthCode(raceDate.Month);
 
         return $"{fp1Date:dd} - {raceDate:dd} {monthCode}";
@@ -191,23 +192,23 @@ else
         {
             if (date.HasValue)
             {
-                var local = date.Value.ToLocalTime();
+                var utc = date.Value;
                 if (!hasDate)
                 {
-                    startDate = local;
-                    endDate = local;
+                    startDate = utc;
+                    endDate = utc;
                     hasDate = true;
                     continue;
                 }
 
-                if (local < startDate)
+                if (utc < startDate)
                 {
-                    startDate = local;
+                    startDate = utc;
                 }
 
-                if (local > endDate)
+                if (utc > endDate)
                 {
-                    endDate = local;
+                    endDate = utc;
                 }
             }
         }
@@ -438,6 +439,11 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            await ResolveBrowserTimeZoneAsync();
+        }
+
         if (shouldScrollToDetails)
         {
             shouldScrollToDetails = false;
@@ -470,11 +476,39 @@ else
     {
         if (!useTrackTime)
         {
-            return item.Time.ToLocalTime();
+            return ToBrowserLocalTime(item.Time);
         }
 
         var timeZone = GetTrackTimeZone(race);
         return TimeZoneInfo.ConvertTime(item.Time, timeZone);
+    }
+
+    private async Task ResolveBrowserTimeZoneAsync()
+    {
+        try
+        {
+            var timeZoneId = await JSRuntime.InvokeAsync<string?>("pickdriverRaces.getBrowserTimeZone");
+            if (string.IsNullOrWhiteSpace(timeZoneId))
+            {
+                return;
+            }
+
+            var resolved = ResolveTimeZone(timeZoneId);
+            if (!string.Equals(browserTimeZone.Id, resolved.Id, StringComparison.Ordinal))
+            {
+                browserTimeZone = resolved;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // Fall back to server-local time zone if browser zone is unavailable.
+        }
+    }
+
+    private DateTimeOffset ToBrowserLocalTime(DateTimeOffset value)
+    {
+        return TimeZoneInfo.ConvertTime(value, browserTimeZone);
     }
 
     private static TimeZoneInfo GetTrackTimeZone(Race race)
