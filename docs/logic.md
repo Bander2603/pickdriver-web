@@ -82,14 +82,16 @@ Este documento resume las reglas reales implementadas en la API para ligas, draf
 
 ## Picks
 ### Reglas de acceso
-- Solo el usuario del turno puede pickear.
+- El usuario del turno puede pickear.
+- El usuario que acaba de pickear puede cambiar su pick anterior mientras el siguiente pick aun no se haya confirmado.
+- Si el turno ya avanzo y el siguiente pick se confirmo, el cambio debe fallar con error de turno inactivo.
 - Si `teamsEnabled = true` y falta menos de 1h para fp1, un companero puede pickear por el turno actual.
 
 ### Validaciones
 - No se permite pick/ban si la carrera ya comenzo o esta completada:
   - `race.completed == true` o `race.raceTime < now`
 - El driver debe existir y pertenecer a la temporada de la carrera.
-- No se permite pickear un driver ya pickeado (global en el draft).
+- No se permite pickear un driver ya pickeado (global en el draft), salvo el propio pick que se esta editando.
 - No se permite pickear un driver que el usuario tenga baneado.
 - Solo un pick por usuario y por "mirror slot" (`is_mirror_pick`).
 

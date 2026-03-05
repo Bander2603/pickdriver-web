@@ -184,12 +184,26 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
         {
             var driverId = await TryReadDriverIdAsync(request, cancellationToken);
             var draft = DraftState;
-            if (driverId.HasValue && draft.CurrentPickIndex >= 0 && draft.CurrentPickIndex < draft.PickedDriverIds.Count)
+            if (!driverId.HasValue)
             {
-                draft.PickedDriverIds[draft.CurrentPickIndex] = driverId.Value;
+                return Error(HttpStatusCode.BadRequest, "Missing driverID");
             }
 
-            if (draft.CurrentPickIndex < draft.PickOrder.Count - 1)
+            var actingUserId = ResolveUserId();
+            var editablePickIndex = ResolveEditablePickIndex(draft, actingUserId);
+            if (!editablePickIndex.HasValue)
+            {
+                return Error(HttpStatusCode.Forbidden, "Your turn is no longer active");
+            }
+
+            if (IsDriverUnavailableForPick(draft, driverId.Value, editablePickIndex.Value))
+            {
+                return Error(HttpStatusCode.Conflict, "Driver no longer available");
+            }
+
+            draft.PickedDriverIds[editablePickIndex.Value] = driverId.Value;
+
+            if (editablePickIndex.Value == draft.CurrentPickIndex && draft.CurrentPickIndex < draft.PickOrder.Count - 1)
             {
                 draft.CurrentPickIndex++;
             }
@@ -333,9 +347,61 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
             NextUserId = nextUserId,
             BannedDriverIds = draft.BannedDriverIds.ToList(),
             PickedDriverIds = draft.PickedDriverIds.Where(id => id.HasValue).Select(id => id!.Value).ToList(),
-            YourTurn = false,
+            YourTurn = nextUserId == MockApiData.DemoUser.Id,
             YourDeadline = DateTimeOffset.UtcNow.AddMinutes(30)
         };
+    }
+
+    private static int ResolveUserId()
+    {
+        // Mock auth is always the demo user.
+        return MockApiData.DemoUser.Id;
+    }
+
+    private static int? ResolveEditablePickIndex(RaceDraft draft, int userId)
+    {
+        if (draft.CurrentPickIndex >= 0
+            && draft.CurrentPickIndex < draft.PickOrder.Count
+            && draft.CurrentPickIndex < draft.PickedDriverIds.Count
+            && draft.PickOrder[draft.CurrentPickIndex] == userId)
+        {
+            return draft.CurrentPickIndex;
+        }
+
+        var previousIndex = draft.CurrentPickIndex - 1;
+        if (previousIndex >= 0
+            && previousIndex < draft.PickOrder.Count
+            && previousIndex < draft.PickedDriverIds.Count
+            && draft.PickOrder[previousIndex] == userId
+            && draft.PickedDriverIds[previousIndex].HasValue)
+        {
+            return previousIndex;
+        }
+
+        return null;
+    }
+
+    private static bool IsDriverUnavailableForPick(RaceDraft draft, int driverId, int editablePickIndex)
+    {
+        if (draft.BannedDriverIds.Contains(driverId))
+        {
+            return true;
+        }
+
+        for (var i = 0; i < draft.PickedDriverIds.Count; i++)
+        {
+            if (i == editablePickIndex)
+            {
+                continue;
+            }
+
+            if (draft.PickedDriverIds[i] == driverId)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task<int?> TryReadDriverIdAsync(HttpRequestMessage request, CancellationToken cancellationToken)

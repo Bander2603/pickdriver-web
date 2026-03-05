@@ -113,7 +113,7 @@ else
                         {
                             <div class="league-hub-actions">
                                 <button class="btn btn-pick" type="button" @onclick="OpenPickModal" disabled="@IsPickDisabled">
-                                    Pick
+                                    @PickActionButtonLabel
                                 </button>
                                 <button class="btn btn-ban" type="button" @onclick="OpenBanModal" disabled="@IsBanDisabled">
                                     Ban
@@ -414,7 +414,7 @@ else
         <div class="league-hub-modal__backdrop" @onclick="ClosePickModal"></div>
         <div class="league-hub-modal__content">
             <div class="league-hub-modal__header">
-                <h2 id="draft-pick-title">Elegir piloto</h2>
+                <h2 id="draft-pick-title">@PickModalTitle</h2>
                 <button type="button" class="league-hub-modal__close" @onclick="ClosePickModal" aria-label="Cerrar">
                     X
                 </button>
@@ -447,7 +447,7 @@ else
                     Cancelar
                 </button>
                 <button type="button" class="btn btn-primary" @onclick="ConfirmPickAsync" disabled="@IsConfirmPickDisabled">
-                    @(isSubmittingPick ? "Confirmando..." : "Confirmar pick")
+                    @PickConfirmButtonLabel
                 </button>
             </div>
         </div>
@@ -912,6 +912,36 @@ else
     private bool IsYourTurn
         => CurrentPickUserId.HasValue && CurrentPickUserId.Value == userId;
 
+    private int? EditableOwnPickIndex
+        => raceDraft is not null
+            && raceDraft.CurrentPickIndex > 0
+            && raceDraft.CurrentPickIndex - 1 < raceDraft.PickOrder.Count
+            && raceDraft.CurrentPickIndex - 1 < raceDraft.PickedDriverIds.Count
+            && raceDraft.PickOrder[raceDraft.CurrentPickIndex - 1] == userId
+            && raceDraft.PickedDriverIds[raceDraft.CurrentPickIndex - 1].HasValue
+            ? raceDraft.CurrentPickIndex - 1
+            : null;
+
+    private bool CanEditPreviousPick
+        => EditableOwnPickIndex.HasValue;
+
+    private bool IsPickActionActive
+        => IsYourTurn || CanEditPreviousPick;
+
+    private bool IsEditingPreviousPick
+        => !IsYourTurn && CanEditPreviousPick;
+
+    private string PickActionButtonLabel
+        => IsEditingPreviousPick ? "Cambiar Pick" : "Pick";
+
+    private string PickModalTitle
+        => IsEditingPreviousPick ? "Cambiar Pick" : "Elegir piloto";
+
+    private string PickConfirmButtonLabel
+        => isSubmittingPick
+            ? (IsEditingPreviousPick ? "Cambiando..." : "Confirmando...")
+            : (IsEditingPreviousPick ? "Cambiar pick" : "Confirmar pick");
+
     private int BansLimit
         => league?.TeamsEnabled == true ? 3 : 2;
 
@@ -963,7 +993,7 @@ else
     }
 
     private bool IsPickDisabled
-        => !IsYourTurn || availablePickDrivers.Count == 0 || isSubmittingPick || raceDraft is null || draftRace is null;
+        => !IsPickActionActive || availablePickDrivers.Count == 0 || isSubmittingPick || raceDraft is null || draftRace is null;
 
     private bool IsConfirmPickDisabled
         => isSubmittingPick || selectedPickDriverId is null || availablePickDrivers.Count == 0;
@@ -991,9 +1021,15 @@ else
 
         var pickedSet = new HashSet<int>(GetPickedDriverIds());
         var bannedSet = new HashSet<int>(GetBannedDriverIds());
+        var editablePickedDriverId = GetEditablePickedDriverId();
 
         return drivers
-            .Where(driver => !pickedSet.Contains(driver.Id) && !bannedSet.Contains(driver.Id))
+            .Where(driver =>
+            {
+                var isCurrentEditablePick = editablePickedDriverId.HasValue && editablePickedDriverId.Value == driver.Id;
+                var isUnavailableByPick = pickedSet.Contains(driver.Id) && !isCurrentEditablePick;
+                return !isUnavailableByPick && !bannedSet.Contains(driver.Id);
+            })
             .OrderBy(driver => driver.LastName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(driver => driver.FirstName, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -1143,6 +1179,22 @@ else
         }
 
         return null;
+    }
+
+    private int? GetEditablePickedDriverId()
+    {
+        if (raceDraft is null || !EditableOwnPickIndex.HasValue)
+        {
+            return null;
+        }
+
+        var index = EditableOwnPickIndex.Value;
+        if (index < 0 || index >= raceDraft.PickedDriverIds.Count)
+        {
+            return null;
+        }
+
+        return raceDraft.PickedDriverIds[index];
     }
 
     private int GetBansUsedForCurrentSide()
@@ -1443,6 +1495,13 @@ else
         {
             await LoadDraftAsync(draftRace.Id);
         }
+
+        var editableDriverId = GetEditablePickedDriverId();
+        if (editableDriverId.HasValue && availablePickDrivers.Any(driver => driver.Id == editableDriverId.Value))
+        {
+            selectedPickDriverId = editableDriverId.Value;
+        }
+
         showPickModal = true;
     }
 
@@ -1496,7 +1555,7 @@ else
             return;
         }
 
-        draftActionMessage = result.ErrorMessage ?? "No se pudo realizar el pick.";
+        draftActionMessage = MapPickErrorMessage(result.ErrorMessage);
     }
 
     private async Task OpenBanModal()
@@ -1766,6 +1825,35 @@ else
             ["driverId"] = driverId,
             ["driver_id"] = driverId
         };
+    }
+
+    private static string MapPickErrorMessage(string? rawMessage)
+    {
+        if (string.IsNullOrWhiteSpace(rawMessage))
+        {
+            return "No se pudo realizar el pick.";
+        }
+
+        var normalized = NormalizeReasonForMatch(rawMessage);
+        return normalized switch
+        {
+            "your turn is no longer active" => "Tu turno ya no esta activo para cambiar el pick.",
+            "driver no longer available" => "Ese piloto ya no esta disponible.",
+            "it's not your turn to pick" => "Ya no es tu turno para pickear.",
+            "its not your turn to pick" => "Ya no es tu turno para pickear.",
+            _ => rawMessage
+        };
+    }
+
+    private static string NormalizeReasonForMatch(string reason)
+    {
+        var normalized = reason.Trim().ToLowerInvariant().Replace('’', '\'');
+        while (normalized.Contains("  ", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("  ", " ", StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private static Dictionary<string, int> BuildBanPayload(int targetUserId, int driverId)
