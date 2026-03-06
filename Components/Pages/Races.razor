@@ -134,7 +134,6 @@ else
     private bool isClosing;
     private string? detailsKey;
     private TimeZoneInfo browserTimeZone = TimeZoneInfo.Local;
-    private static readonly string AssetVersion = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
 
     protected override async Task OnInitializedAsync()
     {
@@ -218,35 +217,17 @@ else
 
     private static string GetFlagUrl(Race race)
     {
-        if (string.IsNullOrWhiteSpace(race.CountryCode))
-        {
-            return string.Empty;
-        }
-
-        var fileName = Uri.EscapeDataString(race.CountryCode.Trim().ToUpperInvariant() + ".png");
-        return $"/assets/races/Country%20Flags/{fileName}";
+        return race.Media?.CountryFlagURL ?? string.Empty;
     }
 
     private static string GetCircuitSimpleUrl(Race race)
     {
-        if (string.IsNullOrWhiteSpace(race.CircuitName))
-        {
-            return string.Empty;
-        }
-
-        var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + "_simple.png");
-        return $"/assets/races/Circuits%20Simple/{fileName}?v={AssetVersion}";
+        return race.Media?.CircuitSimpleURL ?? string.Empty;
     }
 
     private static string GetCircuitUrl(Race race)
     {
-        if (string.IsNullOrWhiteSpace(race.CircuitName))
-        {
-            return string.Empty;
-        }
-
-        var fileName = Uri.EscapeDataString(race.CircuitName.Trim() + ".png");
-        return $"/assets/races/Circuits/{fileName}?v={AssetVersion}";
+        return race.Media?.CircuitURL ?? string.Empty;
     }
 
     private static IReadOnlyList<ScheduleItem> GetScheduleItems(Race race)

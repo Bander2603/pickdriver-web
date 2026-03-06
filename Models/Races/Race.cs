@@ -21,6 +21,19 @@ public sealed class Race
     public DateTimeOffset? SprintQualifyingTime { get; set; }
     public DateTimeOffset? RaceTime { get; set; }
     public CircuitData? CircuitData { get; set; }
+    public RaceMedia? Media { get; set; }
+}
+
+public sealed class RaceMedia
+{
+    [JsonPropertyName("countryFlagURL")]
+    public string? CountryFlagURL { get; set; }
+
+    [JsonPropertyName("circuitURL")]
+    public string? CircuitURL { get; set; }
+
+    [JsonPropertyName("circuitSimpleURL")]
+    public string? CircuitSimpleURL { get; set; }
 }
 
 public sealed class CircuitData
