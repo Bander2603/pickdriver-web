@@ -283,33 +283,23 @@ else
         return $"{data.LapRecordTime} - {data.LapRecordDriver}";
     }
 
-    private static int? GetNextRaceId(IEnumerable<Race> races)
+    private static int? GetNextRaceId(IReadOnlyList<Race> races)
     {
-        var now = DateTimeOffset.UtcNow;
-        Race? nextRace = null;
-        DateTimeOffset? nextStart = null;
-
-        foreach (var race in races)
+        if (races.Count == 0)
         {
-            if (!TryGetEventWindow(race, out var startDate, out _))
-            {
-                continue;
-            }
+            return null;
+        }
 
-            var startUtc = startDate.ToUniversalTime();
-            if (startUtc < now)
+        for (var i = 0; i < races.Count; i++)
+        {
+            var race = races[i];
+            if (!race.Completed)
             {
-                continue;
-            }
-
-            if (!nextStart.HasValue || startUtc < nextStart.Value)
-            {
-                nextStart = startUtc;
-                nextRace = race;
+                return race.Id;
             }
         }
 
-        return nextRace?.Id;
+        return null;
     }
 
     private static string GetMonthCode(int month)
