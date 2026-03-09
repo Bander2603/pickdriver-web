@@ -94,6 +94,49 @@
     letter-spacing: 0.08em;
 }
 
+.league-hub-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.league-hub-card__header h2 {
+    margin: 0;
+}
+
+.league-hub-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.league-hub-filter__label {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.68rem;
+    color: var(--pd-muted);
+}
+
+.league-hub-filter__select {
+    min-width: 150px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}
+
+.league-hub-filter__select option {
+    background-color: #121827;
+    color: #fff;
+}
+
 .league-hub-draft {
     display: grid;
     gap: 1.2rem;
@@ -477,6 +520,10 @@
 
     .league-hub-nav {
         gap: 0.5rem;
+    }
+
+    .league-hub-filter__select {
+        min-width: 132px;
     }
 
     .league-hub-modal__content {

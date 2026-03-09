@@ -42,22 +42,27 @@ else
             }
             else
             {
-                <div class="dashboard-meta">
-                    <div class="dashboard-meta__row">
-                        <span class="dashboard-meta__label">Evento</span>
-                        <span class="dashboard-meta__value">@nextRace.Name</span>
-                    </div>
-                    <div class="dashboard-meta__row">
-                        <span class="dashboard-meta__label">Circuito</span>
-                        <span class="dashboard-meta__value">@nextRace.CircuitName</span>
-                    </div>
-                    <div class="dashboard-meta__row">
-                        <span class="dashboard-meta__label">Round</span>
-                        <span class="dashboard-meta__value">@nextRace.Round</span>
-                    </div>
-                    <div class="dashboard-meta__row">
-                        <span class="dashboard-meta__label">Carrera</span>
-                        <span class="dashboard-meta__value">@FormatRaceDate(nextRace.RaceTime)</span>
+                var flagUrl = GetFlagUrl(nextRace);
+                var circuitSimpleUrl = GetCircuitSimpleUrl(nextRace);
+                <div class="dashboard-upcoming-race">
+                    <div class="race-card race-card--featured">
+                        <div class="race-card__top">
+                            <span class="race-card__round">Round @nextRace.Round</span>
+                        </div>
+                        <div class="race-card__country">
+                            <div class="race-card__flag" style="background-image: url('@flagUrl')"></div>
+                            <p class="race-card__title">@GetRaceCountry(nextRace)</p>
+                        </div>
+                        <p class="race-card__event">@nextRace.Name</p>
+                        <div class="race-card__footer">
+                            <span class="race-card__date-range">@GetUpcomingRaceDateLabel(nextRace)</span>
+                            <div class="race-card__circuit">
+                                @if (!string.IsNullOrWhiteSpace(circuitSimpleUrl))
+                                {
+                                    <img src="@circuitSimpleUrl" alt="Circuito @nextRace.CircuitName" />
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             }
@@ -113,6 +118,8 @@ else
                 </table>
             }
         </section>
+
+        <MobileAppsPanel />
 
         <button type="button" class="dashboard-card dashboard-card--full dashboard-card--interactive" @onclick="NavigateToResults" aria-label="Ir a resultados">
             <div class="dashboard-card__header">
@@ -438,6 +445,58 @@ else
 
         var browserLocal = TimeZoneInfo.ConvertTime(date.Value, browserTimeZone);
         return browserLocal.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private static string GetRaceCountry(Race race)
+    {
+        return string.IsNullOrWhiteSpace(race.Country) ? race.Name : race.Country;
+    }
+
+    private string GetUpcomingRaceDateLabel(Race race)
+    {
+        if (!race.Fp1Time.HasValue || !race.RaceTime.HasValue)
+        {
+            return FormatRaceDate(race.RaceTime);
+        }
+
+        var fp1Date = ToBrowserLocalTime(race.Fp1Time.Value);
+        var raceDate = ToBrowserLocalTime(race.RaceTime.Value);
+        return $"{fp1Date:dd} - {raceDate:dd} {GetMonthCode(raceDate.Month)}";
+    }
+
+    private static string GetFlagUrl(Race race)
+    {
+        return race.Media?.CountryFlagURL ?? string.Empty;
+    }
+
+    private static string GetCircuitSimpleUrl(Race race)
+    {
+        return race.Media?.CircuitSimpleURL ?? string.Empty;
+    }
+
+    private static string GetMonthCode(int month)
+    {
+        return month switch
+        {
+            1 => "ENE",
+            2 => "FEB",
+            3 => "MAR",
+            4 => "ABR",
+            5 => "MAY",
+            6 => "JUN",
+            7 => "JUL",
+            8 => "AGO",
+            9 => "SEP",
+            10 => "OCT",
+            11 => "NOV",
+            12 => "DIC",
+            _ => "N/A"
+        };
+    }
+
+    private DateTimeOffset ToBrowserLocalTime(DateTimeOffset value)
+    {
+        return TimeZoneInfo.ConvertTime(value, browserTimeZone);
     }
 
     private async Task ResolveBrowserTimeZoneAsync()

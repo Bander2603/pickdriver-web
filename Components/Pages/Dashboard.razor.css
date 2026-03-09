@@ -94,6 +94,134 @@ button.dashboard-card {
     margin: 0 0 0.75rem;
 }
 
+.dashboard-upcoming-race {
+    margin-top: 0.2rem;
+}
+
+.dashboard-upcoming-race .race-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.5rem;
+    min-height: 260px;
+    width: 100%;
+    border-radius: 18px;
+    background: var(--pd-surface);
+    border: 1px solid var(--pd-border);
+    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    text-align: left;
+    color: inherit;
+}
+
+.dashboard-upcoming-race .race-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 55%);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.dashboard-upcoming-race .race-card::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--pd-accent), transparent);
+    opacity: 0.7;
+}
+
+.dashboard-upcoming-race .race-card--featured {
+    background: linear-gradient(120deg, rgba(225, 6, 0, 0.95), rgba(225, 6, 0, 0.45)), var(--pd-surface);
+    border-color: rgba(255, 90, 70, 0.7);
+}
+
+.dashboard-upcoming-race .race-card--featured::after {
+    background: linear-gradient(90deg, #fff, transparent);
+}
+
+.dashboard-upcoming-race .race-card__top {
+    display: flex;
+    align-items: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+}
+
+.dashboard-upcoming-race .race-card__country {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.6rem;
+}
+
+.dashboard-upcoming-race .race-card__flag {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background-color: rgba(255, 255, 255, 0.08);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    box-shadow: 0 0 0 2px rgba(15, 18, 28, 0.7);
+}
+
+.dashboard-upcoming-race .race-card__title {
+    margin: 0;
+    font-size: 1.4rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.dashboard-upcoming-race .race-card__event {
+    margin: 0.3rem 0 0.6rem;
+    color: #fff;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.dashboard-upcoming-race .race-card__footer {
+    margin-top: auto;
+    padding-top: 0.8rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.dashboard-upcoming-race .race-card__date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #fff;
+}
+
+.dashboard-upcoming-race .race-card__circuit {
+    width: 96px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+}
+
+.dashboard-upcoming-race .race-card__circuit img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
 .dashboard-meta {
     display: grid;
     gap: 0.75rem;

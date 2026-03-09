@@ -1,0 +1,120 @@
+.mobile-apps-panel {
+    position: relative;
+    padding: 1.6rem;
+    border-radius: 22px;
+    border: 1px solid var(--pd-border);
+    background: var(--pd-surface);
+    box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    display: grid;
+    align-content: start;
+    gap: 0.8rem;
+}
+
+.mobile-apps-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 60%);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.mobile-apps-panel > * {
+    position: relative;
+}
+
+.mobile-apps-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.4rem;
+}
+
+.mobile-apps-panel__title {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.mobile-apps-panel__picker {
+    display: inline-flex;
+    gap: 0.3rem;
+    padding: 0.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.mobile-apps-panel__picker-button {
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--pd-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.3rem 0.7rem;
+    line-height: 1;
+}
+
+.mobile-apps-panel__picker-button--active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+.mobile-apps-panel__subtitle {
+    margin: 0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.mobile-apps-panel__qr {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 0.52rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    width: min(100%, 180px);
+    justify-self: center;
+}
+
+.mobile-apps-panel__qr img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.mobile-apps-panel__note {
+    margin: 0;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.mobile-apps-panel__soon {
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 16px;
+    padding: 1.7rem 1rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.mobile-apps-panel__soon p {
+    margin: 0;
+    color: var(--pd-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+@media (max-width: 720px) {
+    .mobile-apps-panel {
+        padding: 1.2rem;
+    }
+}

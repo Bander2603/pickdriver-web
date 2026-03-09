@@ -1,0 +1,52 @@
+<section class="mobile-apps-panel">
+    <div class="mobile-apps-panel__header">
+        <h2 class="mobile-apps-panel__title">Apps moviles</h2>
+        <div class="mobile-apps-panel__picker" role="tablist" aria-label="Seleccionar plataforma movil">
+            <button type="button"
+                    class="mobile-apps-panel__picker-button @(selectedPlatform == MobilePlatform.Ios ? "mobile-apps-panel__picker-button--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(selectedPlatform == MobilePlatform.Ios)"
+                    @onclick="() => SetPlatform(MobilePlatform.Ios)">
+                iOS
+            </button>
+            <button type="button"
+                    class="mobile-apps-panel__picker-button @(selectedPlatform == MobilePlatform.Android ? "mobile-apps-panel__picker-button--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(selectedPlatform == MobilePlatform.Android)"
+                    @onclick="() => SetPlatform(MobilePlatform.Android)">
+                Android
+            </button>
+        </div>
+    </div>
+
+    @if (selectedPlatform == MobilePlatform.Ios)
+    {
+        <p class="mobile-apps-panel__subtitle text-muted">App iOS nativa en Beta abierta en TestFlight</p>
+        <div class="mobile-apps-panel__qr">
+            <img src="/assets/testflight-ios-qr.svg" alt="Codigo QR de PickDriver iOS en TestFlight" loading="lazy" />
+        </div>
+        <p class="mobile-apps-panel__note text-muted">Escanea este codigo para instalar la beta.</p>
+    }
+    else
+    {
+        <p class="mobile-apps-panel__subtitle text-muted">App Android nativa</p>
+        <div class="mobile-apps-panel__soon">
+            <p>Proximamente</p>
+        </div>
+    }
+</section>
+
+@code {
+    private MobilePlatform selectedPlatform = MobilePlatform.Ios;
+
+    private void SetPlatform(MobilePlatform platform)
+    {
+        selectedPlatform = platform;
+    }
+
+    private enum MobilePlatform
+    {
+        Ios,
+        Android
+    }
+}

@@ -199,7 +199,16 @@ else
         else if (activeTab == LeagueTab.Results)
         {
             <section class="league-hub-card">
-                <h2>Resultados</h2>
+                <div class="league-hub-card__header">
+                    <h2>Resultados</h2>
+                    <div class="league-hub-filter">
+                        <label class="league-hub-filter__label" for="results-filter">Filtro</label>
+                        <select id="results-filter" class="form-select form-select-sm league-hub-filter__select" @bind="standingsSortFilter">
+                            <option value="@StandingsSortFilter.Points">Puntos</option>
+                            <option value="@StandingsSortFilter.Deviation">Desviacion</option>
+                        </select>
+                    </div>
+                </div>
 
                 @if (!string.IsNullOrWhiteSpace(standingsErrorMessage))
                 {
@@ -221,7 +230,8 @@ else
 
                     @if (!showTeamStandings)
                     {
-                        @if (playerStandings.Count == 0)
+                        var sortedPlayerStandings = GetSortedPlayerStandings();
+                        @if (sortedPlayerStandings.Count == 0)
                         {
                             <p class="text-muted">Sin resultados por ahora.</p>
                         }
@@ -238,9 +248,9 @@ else
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @for (var i = 0; i < playerStandings.Count; i++)
+                                        @for (var i = 0; i < sortedPlayerStandings.Count; i++)
                                         {
-                                            var standing = playerStandings[i];
+                                            var standing = sortedPlayerStandings[i];
                                             <tr>
                                                 <td>@(i + 1)</td>
                                                 <td>@standing.Username</td>
@@ -255,7 +265,8 @@ else
                     }
                     else
                     {
-                        @if (teamStandings.Count == 0)
+                        var sortedTeamStandings = GetSortedTeamStandings();
+                        @if (sortedTeamStandings.Count == 0)
                         {
                             <p class="text-muted">Sin resultados por equipos por ahora.</p>
                         }
@@ -272,9 +283,9 @@ else
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @for (var i = 0; i < teamStandings.Count; i++)
+                                        @for (var i = 0; i < sortedTeamStandings.Count; i++)
                                         {
-                                            var standing = teamStandings[i];
+                                            var standing = sortedTeamStandings[i];
                                             <tr>
                                                 <td>@(i + 1)</td>
                                                 <td>@standing.Name</td>
@@ -633,6 +644,7 @@ else
     private bool isLoadingSeasonBans;
     private int? selectedHistoryRound;
     private bool showTeamStandings;
+    private StandingsSortFilter standingsSortFilter = StandingsSortFilter.Points;
     private HistoryMode historyMode = HistoryMode.Player;
     private LeagueTab activeTab = LeagueTab.Draft;
     private PickInfo? lastPickInfo;
@@ -2056,6 +2068,40 @@ else
         showTeamStandings = showTeams;
     }
 
+    private List<PlayerStanding> GetSortedPlayerStandings()
+    {
+        var query = standingsSortFilter switch
+        {
+            StandingsSortFilter.Deviation => playerStandings
+                .OrderByDescending(item => item.TotalDeviation)
+                .ThenByDescending(item => item.TotalPoints)
+                .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase),
+            _ => playerStandings
+                .OrderByDescending(item => item.TotalPoints)
+                .ThenByDescending(item => item.TotalDeviation)
+                .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
+        };
+
+        return query.ToList();
+    }
+
+    private List<PlayerTeamStanding> GetSortedTeamStandings()
+    {
+        var query = standingsSortFilter switch
+        {
+            StandingsSortFilter.Deviation => teamStandings
+                .OrderByDescending(item => item.TotalDeviation)
+                .ThenByDescending(item => item.TotalPoints)
+                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase),
+            _ => teamStandings
+                .OrderByDescending(item => item.TotalPoints)
+                .ThenByDescending(item => item.TotalDeviation)
+                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+        };
+
+        return query.ToList();
+    }
+
     private async Task SetHistoryMode(HistoryMode mode)
     {
         historyMode = mode;
@@ -2122,6 +2168,12 @@ else
     {
         Player,
         Race
+    }
+
+    private enum StandingsSortFilter
+    {
+        Points,
+        Deviation
     }
 
     private sealed record PickBadge(string Label, string CssClass);

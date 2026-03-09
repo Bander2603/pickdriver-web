@@ -1,0 +1,9 @@
+.home-mobile-apps {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.home-mobile-apps__panel {
+    width: min(100%, 460px);
+}

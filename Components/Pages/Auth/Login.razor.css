@@ -29,3 +29,13 @@
     display: flex;
     justify-content: center;
 }
+
+.login-mobile-apps {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.login-mobile-apps__panel {
+    width: min(100%, 460px);
+}
