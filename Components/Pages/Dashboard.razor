@@ -11,25 +11,25 @@
 
 <div class="dashboard-header">
     <div>
-        <h1>Dashboard</h1>
-        <p class="dashboard-subtitle text-muted">Resumen general de tu temporada.</p>
+        <h1>@Text["Dashboard"]</h1>
+        <p class="dashboard-subtitle text-muted">@Text["Resumen general de tu temporada."]</p>
     </div>
 </div>
 
 @if (!isAuthorized)
 {
-    <p>Redirigiendo al login...</p>
+    <p>@Text["Redirigiendo al login..."]</p>
 }
 else if (isLoading)
 {
-    <p><em>Cargando datos...</em></p>
+    <p><em>@Text["Cargando datos..."]</em></p>
 }
 else
 {
     <div class="dashboard-grid">
-        <button type="button" class="dashboard-card dashboard-card--interactive" @onclick="NavigateToCalendar" aria-label="Ir al calendario">
+        <button type="button" class="dashboard-card dashboard-card--interactive" @onclick="NavigateToCalendar" aria-label="@Text["Ir al calendario"]">
             <div class="dashboard-card__header">
-                <h2 class="dashboard-card__title">Proxima carrera</h2>
+                <h2 class="dashboard-card__title">@Text["Proxima carrera"]</h2>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(nextRaceError))
@@ -38,7 +38,7 @@ else
             }
             else if (nextRace is null)
             {
-                <p class="dashboard-empty text-muted">No hay carrera cargada.</p>
+                <p class="dashboard-empty text-muted">@Text["No hay carrera cargada."]</p>
             }
             else
             {
@@ -47,7 +47,7 @@ else
                 <div class="dashboard-upcoming-race">
                     <div class="race-card race-card--featured">
                         <div class="race-card__top">
-                            <span class="race-card__round">Round @nextRace.Round</span>
+                            <span class="race-card__round">@Text.Format("Round {0}", nextRace.Round)</span>
                         </div>
                         <div class="race-card__country">
                             <div class="race-card__flag" style="background-image: url('@flagUrl')"></div>
@@ -59,7 +59,7 @@ else
                             <div class="race-card__circuit">
                                 @if (!string.IsNullOrWhiteSpace(circuitSimpleUrl))
                                 {
-                                    <img src="@circuitSimpleUrl" alt="Circuito @nextRace.CircuitName" />
+                                    <img src="@circuitSimpleUrl" alt="@Text.Format("Circuito {0}", nextRace.CircuitName)" />
                                 }
                             </div>
                         </div>
@@ -71,11 +71,11 @@ else
         <section class="dashboard-card @(CanNavigateToLeaguesCard ? "dashboard-card--interactive" : string.Empty)"
                  role="@(CanNavigateToLeaguesCard ? "button" : null)"
                  tabindex="@(CanNavigateToLeaguesCard ? "0" : null)"
-                 aria-label="@(CanNavigateToLeaguesCard ? "Ir a ligas" : null)"
+                 aria-label="@(CanNavigateToLeaguesCard ? Text["Ir a ligas"] : null)"
                  @onclick="HandleLeagueCardClick"
                  @onkeydown="HandleLeagueCardKeyDown">
             <div class="dashboard-card__header">
-                <h2 class="dashboard-card__title">Tus ligas</h2>
+                <h2 class="dashboard-card__title">@Text["Tus ligas"]</h2>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(leaguesError))
@@ -84,21 +84,21 @@ else
             }
             else if (leagueItems.Count == 0)
             {
-                <p class="dashboard-empty text-muted">Todavia no estas en ninguna liga.</p>
+                <p class="dashboard-empty text-muted">@Text["Todavia no estas en ninguna liga."]</p>
             }
             else
             {
                 if (leaguePositionsPartial)
                 {
-                    <p class="dashboard-note text-muted">No se pudo calcular la posicion en todas las ligas.</p>
+                    <p class="dashboard-note text-muted">@Text["No se pudo calcular la posicion en todas las ligas."]</p>
                 }
 
                 <table class="dashboard-table">
                     <thead>
                         <tr>
-                            <th>Liga</th>
-                            <th>Status</th>
-                            <th class="dashboard-points">Pos.</th>
+                            <th>@Text["Liga"]</th>
+                            <th>@Text["Status"]</th>
+                            <th class="dashboard-points">@Text["Pos."]</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -110,7 +110,7 @@ else
                                 @onclick="() => HandleLeagueItemClick(item.League)"
                                 @onkeydown="args => HandleLeagueRowKeyDown(args, item.League)">
                                 <td>@item.League.Name</td>
-                                <td><span class="dashboard-status">@item.League.Status</span></td>
+                                <td><span class="dashboard-status">@Text.Translate(item.League.Status)</span></td>
                                 <td class="dashboard-points">@item.PositionLabel</td>
                             </tr>
                         }
@@ -121,9 +121,9 @@ else
 
         <MobileAppsPanel />
 
-        <button type="button" class="dashboard-card dashboard-card--full dashboard-card--interactive" @onclick="NavigateToResults" aria-label="Ir a resultados">
+        <button type="button" class="dashboard-card dashboard-card--full dashboard-card--interactive" @onclick="NavigateToResults" aria-label="@Text["Ir a resultados"]">
             <div class="dashboard-card__header">
-                <h2 class="dashboard-card__title">Resultados F1</h2>
+                <h2 class="dashboard-card__title">@Text["Resultados F1"]</h2>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(standingsError))
@@ -134,20 +134,20 @@ else
             {
                 <div class="dashboard-standings">
                     <div class="dashboard-standings__column">
-                        <h3 class="dashboard-standings__title">Top 5 pilotos</h3>
+                        <h3 class="dashboard-standings__title">@Text["Top 5 pilotos"]</h3>
                         @if (topDrivers.Count == 0)
                         {
-                            <p class="dashboard-empty text-muted">Sin datos.</p>
+                            <p class="dashboard-empty text-muted">@Text["Sin datos."]</p>
                         }
                         else
                         {
                             <table class="dashboard-table">
                                 <thead>
                                     <tr>
-                                        <th class="dashboard-pos">Pos.</th>
-                                        <th>Piloto</th>
-                                        <th>Equipo</th>
-                                        <th class="dashboard-points">Pts.</th>
+                                        <th class="dashboard-pos">@Text["Pos."]</th>
+                                        <th>@Text["Piloto"]</th>
+                                        <th>@Text["Equipo"]</th>
+                                        <th class="dashboard-points">@Text["Pts."]</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -171,19 +171,19 @@ else
                         }
                     </div>
                     <div class="dashboard-standings__column">
-                        <h3 class="dashboard-standings__title">Top 3 equipos</h3>
+                        <h3 class="dashboard-standings__title">@Text["Top 3 equipos"]</h3>
                         @if (topTeams.Count == 0)
                         {
-                            <p class="dashboard-empty text-muted">Sin datos.</p>
+                            <p class="dashboard-empty text-muted">@Text["Sin datos."]</p>
                         }
                         else
                         {
                             <table class="dashboard-table">
                                 <thead>
                                     <tr>
-                                        <th class="dashboard-pos">Pos.</th>
-                                        <th>Equipo</th>
-                                        <th class="dashboard-points">Pts.</th>
+                                        <th class="dashboard-pos">@Text["Pos."]</th>
+                                        <th>@Text["Equipo"]</th>
+                                        <th class="dashboard-points">@Text["Pts."]</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -254,7 +254,7 @@ else
         }
         else
         {
-            nextRaceError = raceResult.ErrorMessage ?? "No se pudo cargar la proxima carrera.";
+            nextRaceError = Text.TranslateApiMessage(raceResult.ErrorMessage, "No se pudo cargar la proxima carrera.");
         }
 
         var leaguesResult = await leaguesTask;
@@ -264,7 +264,7 @@ else
         }
         else if (!leaguesResult.Success)
         {
-            leaguesError = leaguesResult.ErrorMessage ?? "No se pudieron cargar las ligas.";
+            leaguesError = Text.TranslateApiMessage(leaguesResult.ErrorMessage, "No se pudieron cargar las ligas.");
         }
 
         var driversResult = await driversTask;
@@ -287,7 +287,7 @@ else
         }
         else
         {
-            standingsError = driversResult.ErrorMessage ?? teamsResult.ErrorMessage ?? "No se pudieron cargar los resultados.";
+            standingsError = Text.TranslateApiMessage(driversResult.ErrorMessage ?? teamsResult.ErrorMessage, "No se pudieron cargar los resultados.");
         }
 
         isLoading = false;
@@ -440,11 +440,11 @@ else
     {
         if (!date.HasValue)
         {
-            return "Por confirmar";
+            return Text["Por confirmar"];
         }
 
         var browserLocal = TimeZoneInfo.ConvertTime(date.Value, browserTimeZone);
-        return browserLocal.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+        return browserLocal.ToString("dd MMM yyyy HH:mm", CultureInfo.CurrentCulture);
     }
 
     private static string GetRaceCountry(Race race)
@@ -476,22 +476,10 @@ else
 
     private static string GetMonthCode(int month)
     {
-        return month switch
-        {
-            1 => "ENE",
-            2 => "FEB",
-            3 => "MAR",
-            4 => "ABR",
-            5 => "MAY",
-            6 => "JUN",
-            7 => "JUL",
-            8 => "AGO",
-            9 => "SEP",
-            10 => "OCT",
-            11 => "NOV",
-            12 => "DIC",
-            _ => "N/A"
-        };
+        var monthNames = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames;
+        return month >= 1 && month <= 12
+            ? monthNames[month - 1].ToUpperInvariant()
+            : "N/A";
     }
 
     private DateTimeOffset ToBrowserLocalTime(DateTimeOffset value)

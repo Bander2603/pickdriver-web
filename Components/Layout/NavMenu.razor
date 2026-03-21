@@ -1,25 +1,25 @@
 <div class="app-nav">
     <div class="app-nav__brand">
         <NavLink class="app-brand" href="">PickDriver</NavLink>
-        <span class="app-brand__tag">liga</span>
+        <span class="app-brand__tag">@Text["liga"]</span>
     </div>
 
-    <nav class="app-nav__links" aria-label="Primary">
-        <NavLink class="app-nav__link" href="dashboard">Dashboard</NavLink>
-        <NavLink class="app-nav__link" href="leagues">Ligas</NavLink>
-        <NavLink class="app-nav__link" href="races">Calendario</NavLink>
-        <NavLink class="app-nav__link" href="standings">Resultados</NavLink>
-        <NavLink class="app-nav__link" href="rules">Reglas del juego</NavLink>
+    <nav class="app-nav__links" aria-label="@Text["Primary"]">
+        <NavLink class="app-nav__link" href="dashboard">@Text["Dashboard"]</NavLink>
+        <NavLink class="app-nav__link" href="leagues">@Text["Ligas"]</NavLink>
+        <NavLink class="app-nav__link" href="races">@Text["Calendario"]</NavLink>
+        <NavLink class="app-nav__link" href="standings">@Text["Resultados"]</NavLink>
+        <NavLink class="app-nav__link" href="rules">@Text["Reglas del juego"]</NavLink>
     </nav>
 
     <div class="app-nav__auth">
         <AuthorizeView>
             <Authorized>
-                <NavLink class="app-button app-button--ghost" href="profile">Mi perfil</NavLink>
+                <NavLink class="app-button app-button--ghost" href="profile">@Text["Mi perfil"]</NavLink>
             </Authorized>
             <NotAuthorized>
-                <NavLink class="app-nav__link app-nav__link--muted" href="login">Iniciar sesion</NavLink>
-                <NavLink class="app-button" href="register">Registro</NavLink>
+                <NavLink class="app-nav__link app-nav__link--muted" href="login">@Text["Iniciar sesion"]</NavLink>
+                <NavLink class="app-button" href="register">@Text["Registro"]</NavLink>
             </NotAuthorized>
         </AuthorizeView>
     </div>

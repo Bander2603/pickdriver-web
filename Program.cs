@@ -1,7 +1,10 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.Extensions.Options;
 using PickDriverWeb.Components;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Options;
 using PickDriverWeb.Services;
 using PickDriverWeb.State;
@@ -9,6 +12,7 @@ using PickDriverWeb.State;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddLocalization();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddAuthorizationCore();
@@ -18,7 +22,22 @@ builder.Services.AddScoped<PickDriverAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<PickDriverAuthStateProvider>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EmailCooldownService>();
+builder.Services.AddSingleton<AppText>();
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection("Api"));
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[]
+    {
+        new CultureInfo("en"),
+        new CultureInfo("es")
+    };
+
+    options.DefaultRequestCulture = new RequestCulture("en");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.FallBackToParentCultures = true;
+    options.FallBackToParentUICultures = true;
+});
 builder.Services.Configure<GoogleAuthOptions>(options =>
 {
     var clientId = builder.Configuration["GoogleAuth:ClientId"];
@@ -63,10 +82,31 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseRequestLocalization();
 
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGet("/culture/set", (HttpContext httpContext, string culture, string? returnUrl) =>
+{
+    var normalizedCulture = AppStrings.NormalizeCulture(culture);
+    var safeReturnUrl = string.IsNullOrWhiteSpace(returnUrl) || !Uri.TryCreate(returnUrl, UriKind.Relative, out _)
+        ? "/"
+        : returnUrl;
+
+    httpContext.Response.Cookies.Append(
+        CookieRequestCultureProvider.DefaultCookieName,
+        CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(normalizedCulture)),
+        new CookieOptions
+        {
+            Expires = DateTimeOffset.UtcNow.AddYears(1),
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax,
+            HttpOnly = false
+        });
+
+    return Results.LocalRedirect(safeReturnUrl);
+});
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using PickDriverWeb.Components.Pages;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Models;
 using PickDriverWeb.Models.Auth;
 using PickDriverWeb.Models.Drivers;
@@ -46,7 +47,7 @@ public sealed class LeaguesComponentTests
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Todavia no estas en ninguna liga", cut.Markup);
+            Assert.Contains(AppStrings.Translate("Todavia no estas en ninguna liga."), cut.Markup);
         });
     }
 

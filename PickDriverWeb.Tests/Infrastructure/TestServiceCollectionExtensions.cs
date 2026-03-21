@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Options;
 using PickDriverWeb.Services;
 using PickDriverWeb.State;
@@ -22,6 +23,7 @@ internal static class TestServiceCollectionExtensions
         services.AddSingleton<PickDriverAuthStateProvider>();
         services.AddSingleton<AuthenticationStateProvider>(sp => sp.GetRequiredService<PickDriverAuthStateProvider>());
         services.AddSingleton<IOptions<GoogleAuthOptions>>(Microsoft.Extensions.Options.Options.Create(options));
+        services.AddSingleton<AppText>();
         services.AddSingleton<ApiClient>(sp => new ApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") },
             sp.GetRequiredService<IAuthSessionStore>(),

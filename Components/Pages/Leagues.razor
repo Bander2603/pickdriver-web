@@ -11,17 +11,17 @@
 
 <div class="leagues-header">
     <div>
-        <h1>Ligas</h1>
-        <p class="leagues-subtitle text-muted">Gestiona tus ligas y su estado actual.</p>
+        <h1>@Text["Ligas"]</h1>
+        <p class="leagues-subtitle text-muted">@Text["Gestiona tus ligas y su estado actual."]</p>
     </div>
     @if (isAuthorized)
     {
         <div class="leagues-header__actions">
             <button class="btn btn-outline-primary" type="button" @onclick="OpenJoinModal" disabled="@isLoading">
-                Unirse a liga
+                @Text["Unirse a liga"]
             </button>
             <button class="btn btn-primary leagues-create" type="button" @onclick="OpenCreateModal" disabled="@isLoading">
-                Crear liga
+                @Text["Crear liga"]
             </button>
         </div>
     }
@@ -29,14 +29,14 @@
 
 @if (!isAuthorized)
 {
-    <p>Redirigiendo al login...</p>
+    <p>@Text["Redirigiendo al login..."]</p>
 }
 else
 {
     <div class="leagues-panel">
         @if (isLoading)
         {
-            <p class="leagues-empty"><em>Cargando ligas...</em></p>
+            <p class="leagues-empty"><em>@Text["Cargando ligas..."]</em></p>
         }
         else if (!string.IsNullOrWhiteSpace(errorMessage))
         {
@@ -44,7 +44,7 @@ else
         }
         else if (leagues.Count == 0)
         {
-            <p class="leagues-empty text-muted">Todavia no estas en ninguna liga.</p>
+            <p class="leagues-empty text-muted">@Text["Todavia no estas en ninguna liga."]</p>
         }
         else
         {

@@ -1,7 +1,7 @@
 <section class="mobile-apps-panel">
     <div class="mobile-apps-panel__header">
-        <h2 class="mobile-apps-panel__title">Apps moviles</h2>
-        <div class="mobile-apps-panel__picker" role="tablist" aria-label="Seleccionar plataforma movil">
+        <h2 class="mobile-apps-panel__title">@Text["Apps moviles"]</h2>
+        <div class="mobile-apps-panel__picker" role="tablist" aria-label="@Text["Seleccionar plataforma movil"]">
             <button type="button"
                     class="mobile-apps-panel__picker-button @(selectedPlatform == MobilePlatform.Ios ? "mobile-apps-panel__picker-button--active" : string.Empty)"
                     role="tab"
@@ -21,24 +21,24 @@
 
     @if (selectedPlatform == MobilePlatform.Ios)
     {
-        <p class="mobile-apps-panel__subtitle text-muted">App iOS nativa en Beta abierta en TestFlight</p>
+        <p class="mobile-apps-panel__subtitle text-muted">@Text["App iOS nativa en Beta abierta en TestFlight"]</p>
         <div class="mobile-apps-panel__qr">
-            <img src="/assets/testflight-ios-qr.svg" alt="Codigo QR de PickDriver iOS en TestFlight" loading="lazy" />
+            <img src="/assets/testflight-ios-qr.svg" alt="@Text["Codigo QR de PickDriver iOS en TestFlight"]" loading="lazy" />
         </div>
-        <p class="mobile-apps-panel__note text-muted">Escanea este codigo para instalar la beta.</p>
+        <p class="mobile-apps-panel__note text-muted">@Text["Escanea este codigo para instalar la beta."]</p>
     }
     else
     {
-        <p class="mobile-apps-panel__subtitle text-muted">App Android nativa en beta cerrada</p>
+        <p class="mobile-apps-panel__subtitle text-muted">@Text["App Android nativa en beta cerrada"]</p>
         <p class="mobile-apps-panel__note mobile-apps-panel__note--android text-muted">
-            Unete al
-            <a class="mobile-apps-panel__testers-link" href="https://groups.google.com/g/pickdriver-testers">grupo de testers</a>
-            y descarga la app escaneando este codigo QR.
+            @Text["Unete al"]
+            <a class="mobile-apps-panel__testers-link" href="https://groups.google.com/g/pickdriver-testers">@Text["grupo de testers"]</a>
+            @Text["y descarga la app escaneando este codigo QR."]
         </p>
         <div class="mobile-apps-panel__qr">
-            <img src="/assets/play-store-android-qr.svg" alt="Codigo QR de PickDriver Android en Google Play" loading="lazy" />
+            <img src="/assets/play-store-android-qr.svg" alt="@Text["Codigo QR de PickDriver Android en Google Play"]" loading="lazy" />
         </div>
-        <p class="mobile-apps-panel__note text-muted">Escanea este codigo para abrir la app en Google Play.</p>
+        <p class="mobile-apps-panel__note text-muted">@Text["Escanea este codigo para abrir la app en Google Play."]</p>
     }
 </section>
 

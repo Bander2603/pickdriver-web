@@ -1,4 +1,5 @@
 ﻿@page "/races"
+@using System.Globalization
 @using Microsoft.AspNetCore.Components
 @inject ApiClient ApiClient
 @inject IJSRuntime JSRuntime
@@ -7,14 +8,14 @@
 
 <div class="races-header">
     <div>
-        <h1>Calendario</h1>
-        <p class="races-subtitle text-muted">Carreras de la temporada.</p>
+        <h1>@Text["Calendario"]</h1>
+        <p class="races-subtitle text-muted">@Text["Carreras de la temporada."]</p>
     </div>
 </div>
 
 @if (isLoading)
 {
-    <p><em>Cargando carreras...</em></p>
+    <p><em>@Text["Cargando carreras..."]</em></p>
 }
 else if (!string.IsNullOrWhiteSpace(errorMessage))
 {
@@ -22,7 +23,7 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
 }
 else if (races.Count == 0)
 {
-    <p class="text-muted">Sin carreras disponibles.</p>
+    <p class="text-muted">@Text["Sin carreras disponibles."]</p>
 }
 else
 {
@@ -34,7 +35,7 @@ else
             var isSelected = selectedRaceId.HasValue && race.Id == selectedRaceId.Value;
             <button type="button" class="race-card @(isFeatured ? "race-card--featured" : string.Empty) @(isSelected ? "race-card--selected" : string.Empty)" @onclick="() => SelectRaceAsync(race, i)" @key="race.Id">
                 <div class="race-card__top">
-                    <span class="race-card__round">Round @race.Round</span>
+                    <span class="race-card__round">@Text.Format("Round {0}", race.Round)</span>
                 </div>
                 <div class="race-card__country">
                     <div class="race-card__flag" style="background-image: url('@GetFlagUrl(race)')"></div>
@@ -44,7 +45,7 @@ else
                 <div class="race-card__footer">
                     <span class="race-card__date-range">@GetRaceDateRange(race)</span>
                     <div class="race-card__circuit">
-                        <img src="@GetCircuitSimpleUrl(race)" alt="Circuito @race.CircuitName" />
+                        <img src="@GetCircuitSimpleUrl(race)" alt="@Text.Format("Circuito {0}", race.CircuitName)" />
                     </div>
                 </div>
             </button>
@@ -54,37 +55,37 @@ else
                 <div class="race-details race-details--inline @(isClosing ? "race-details--closing" : string.Empty)" @key="detailsKey" @ref="detailsRef">
                     <div class="race-details__left">
                         <div class="race-details__image">
-                            <img src="@GetCircuitUrl(selectedRace)" alt="Circuito @selectedRace.CircuitName" />
+                            <img src="@GetCircuitUrl(selectedRace)" alt="@Text.Format("Circuito {0}", selectedRace.CircuitName)" />
                         </div>
                         <div class="race-details__meta">
                             <div class="race-details__row">
-                                <span class="race-details__label">Longitud del circuito</span>
+                                <span class="race-details__label">@Text["Longitud del circuito"]</span>
                                 <span class="race-details__value">@FormatKilometers(selectedRace.CircuitData?.CircuitLength)</span>
                             </div>
                             <div class="race-details__row">
-                                <span class="race-details__label">Distancia de carrera</span>
+                                <span class="race-details__label">@Text["Distancia de carrera"]</span>
                                 <span class="race-details__value">@FormatKilometers(selectedRace.CircuitData?.RaceDistance)</span>
                             </div>
                             <div class="race-details__row">
-                                <span class="race-details__label">Vueltas</span>
+                                <span class="race-details__label">@Text["Vueltas"]</span>
                                 <span class="race-details__value">@FormatLaps(selectedRace.CircuitData?.Laps)</span>
                             </div>
                             <div class="race-details__row">
-                                <span class="race-details__label">Primer Gran Premio</span>
+                                <span class="race-details__label">@Text["Primer Gran Premio"]</span>
                                 <span class="race-details__value">@FormatFirstGp(selectedRace.CircuitData?.FirstGp)</span>
                             </div>
                             <div class="race-details__row">
-                                <span class="race-details__label">Record de vuelta</span>
+                                <span class="race-details__label">@Text["Record de vuelta"]</span>
                                 <span class="race-details__value">@FormatLapRecord(selectedRace.CircuitData)</span>
                             </div>
                         </div>
                     </div>
                     <div class="race-details__right">
                         <div class="race-details__header">
-                            <h2 class="race-details__title">Horarios</h2>
-                            <div class="race-details__toggle" role="group" aria-label="Tipo de horario">
-                                <button type="button" class="race-toggle @(useTrackTime ? string.Empty : "active")" @onclick="() => SetScheduleMode(false)">Mi hora</button>
-                                <button type="button" class="race-toggle @(useTrackTime ? "active" : string.Empty)" @onclick="() => SetScheduleMode(true)">Hora circuito</button>
+                            <h2 class="race-details__title">@Text["Horarios"]</h2>
+                            <div class="race-details__toggle" role="group" aria-label="@Text["Tipo de horario"]">
+                                <button type="button" class="race-toggle @(useTrackTime ? string.Empty : "active")" @onclick="() => SetScheduleMode(false)">@Text["Mi hora"]</button>
+                                <button type="button" class="race-toggle @(useTrackTime ? "active" : string.Empty)" @onclick="() => SetScheduleMode(true)">@Text["Hora circuito"]</button>
                             </div>
                         </div>
                         <span class="race-details__subtitle">@GetScheduleModeLabel()</span>
@@ -94,7 +95,7 @@ else
                             }
                             @if (scheduleItems.Count == 0)
                             {
-                                <p class="text-muted">Sin horarios confirmados.</p>
+                                <p class="text-muted">@Text["Sin horarios confirmados."]</p>
                             }
                             else
                             {
@@ -145,7 +146,7 @@ else
         }
         else
         {
-            errorMessage = result.ErrorMessage ?? "No se pudieron cargar las carreras.";
+            errorMessage = Text.TranslateApiMessage(result.ErrorMessage, "No se pudieron cargar las carreras.");
         }
 
         isLoading = false;
@@ -160,7 +161,7 @@ else
     {
         if (!race.Fp1Time.HasValue || !race.RaceTime.HasValue)
         {
-            return "Por confirmar";
+            return AppStrings.Translate("Por confirmar");
         }
 
         var fp1Date = ToBrowserLocalTime(race.Fp1Time.Value);
@@ -234,13 +235,13 @@ else
     {
         var items = new List<ScheduleItem>();
 
-        AddSchedule(items, "Practice 1", race.Fp1Time);
-        AddSchedule(items, "Practice 2", race.Fp2Time);
-        AddSchedule(items, "Practice 3", race.Fp3Time);
-        AddSchedule(items, "Qualifying", race.QualifyingTime);
-        AddSchedule(items, "Sprint Qualifying", race.SprintQualifyingTime);
-        AddSchedule(items, "Sprint", race.SprintTime);
-        AddSchedule(items, "Race", race.RaceTime);
+        AddSchedule(items, AppStrings.Translate("Practice 1"), race.Fp1Time);
+        AddSchedule(items, AppStrings.Translate("Practice 2"), race.Fp2Time);
+        AddSchedule(items, AppStrings.Translate("Practice 3"), race.Fp3Time);
+        AddSchedule(items, AppStrings.Translate("Qualifying"), race.QualifyingTime);
+        AddSchedule(items, AppStrings.Translate("Sprint Qualifying"), race.SprintQualifyingTime);
+        AddSchedule(items, AppStrings.Translate("Sprint"), race.SprintTime);
+        AddSchedule(items, AppStrings.Translate("Race"), race.RaceTime);
 
         return items.OrderBy(item => item.Time).ToList();
     }
@@ -255,24 +256,24 @@ else
 
     private static string FormatKilometers(double? value)
     {
-        return value.HasValue ? $"{value.Value:0.###} km" : "Por confirmar";
+        return value.HasValue ? $"{value.Value:0.###} km" : AppStrings.Translate("Por confirmar");
     }
 
     private static string FormatLaps(int? value)
     {
-        return value.HasValue ? value.Value.ToString() : "Por confirmar";
+        return value.HasValue ? value.Value.ToString() : AppStrings.Translate("Por confirmar");
     }
 
     private static string FormatFirstGp(int? value)
     {
-        return value.HasValue ? value.Value.ToString() : "Por confirmar";
+        return value.HasValue ? value.Value.ToString() : AppStrings.Translate("Por confirmar");
     }
 
     private static string FormatLapRecord(CircuitData? data)
     {
         if (data is null || string.IsNullOrWhiteSpace(data.LapRecordTime))
         {
-            return "Por confirmar";
+            return AppStrings.Translate("Por confirmar");
         }
 
         if (string.IsNullOrWhiteSpace(data.LapRecordDriver))
@@ -304,22 +305,10 @@ else
 
     private static string GetMonthCode(int month)
     {
-        return month switch
-        {
-            1 => "ENE",
-            2 => "FEB",
-            3 => "MAR",
-            4 => "ABR",
-            5 => "MAY",
-            6 => "JUN",
-            7 => "JUL",
-            8 => "AGO",
-            9 => "SEP",
-            10 => "OCT",
-            11 => "NOV",
-            12 => "DIC",
-            _ => "N/A"
-        };
+        var monthNames = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames;
+        return month >= 1 && month <= 12
+            ? monthNames[month - 1].ToUpperInvariant()
+            : "N/A";
     }
 
     private static readonly Dictionary<string, string> CircuitTimeZones = new(StringComparer.OrdinalIgnoreCase)
@@ -431,16 +420,16 @@ else
     {
         if (!useTrackTime)
         {
-            return "Hora local";
+            return AppStrings.Translate("Hora local");
         }
 
         if (selectedRace is null)
         {
-            return "Hora circuito (UTC)";
+            return AppStrings.Translate("Hora circuito (UTC)");
         }
 
         var timeZone = GetTrackTimeZone(selectedRace);
-        return $"Hora circuito ({timeZone.StandardName})";
+        return AppStrings.Format("Hora circuito ({0})", timeZone.StandardName);
     }
 
     private DateTimeOffset GetScheduleDisplayTime(ScheduleItem item, Race race)

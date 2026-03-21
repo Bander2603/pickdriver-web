@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Models;
 using PickDriverWeb.Models.Auth;
 using PickDriverWeb.Services;
@@ -84,7 +85,7 @@ public sealed class ApiClientTests
         var result = await apiClient.GetAsync<UserPublic>("auth/profile");
 
         Assert.False(result.Success);
-        Assert.Equal("Respuesta inesperada del servidor.", result.ErrorMessage);
+        Assert.Equal(AppStrings.Translate("Respuesta inesperada del servidor."), result.ErrorMessage);
     }
 
     [Fact]

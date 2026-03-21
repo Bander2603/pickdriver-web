@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using PickDriverWeb.Components.Pages.Auth;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Models;
 using PickDriverWeb.Models.Auth;
 using PickDriverWeb.Services;
@@ -25,8 +26,8 @@ public sealed class LoginComponentTests
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("El email es obligatorio.", cut.Markup);
-            Assert.Contains("La password es obligatoria.", cut.Markup);
+            Assert.Contains(AppStrings.Translate("El email es obligatorio."), cut.Markup);
+            Assert.Contains(AppStrings.Translate("La password es obligatoria."), cut.Markup);
         });
     }
 
@@ -78,7 +79,7 @@ public sealed class LoginComponentTests
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Credenciales invalidas", cut.Markup);
+            Assert.Contains(AppStrings.Translate("Credenciales invalidas"), cut.Markup);
         });
     }
 
@@ -102,8 +103,8 @@ public sealed class LoginComponentTests
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Tu cuenta aun no esta verificada.", cut.Markup);
-            Assert.Contains("Reenviar email de verificacion", cut.Markup);
+            Assert.Contains(AppStrings.Translate("Tu cuenta aun no esta verificada."), cut.Markup);
+            Assert.Contains(AppStrings.Translate("Reenviar email de verificacion"), cut.Markup);
         });
     }
 }

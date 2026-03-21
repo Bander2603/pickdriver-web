@@ -1,8 +1,10 @@
-﻿using System.Net;
+﻿using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Models;
 using PickDriverWeb.State;
 
@@ -65,6 +67,9 @@ public sealed class ApiClient
             }
         }
 
+        message.Headers.AcceptLanguage.Clear();
+        message.Headers.AcceptLanguage.ParseAdd(CultureInfo.CurrentUICulture.Name);
+
         HttpResponseMessage response;
         try
         {
@@ -75,7 +80,7 @@ public sealed class ApiClient
             return new ApiResult<TResponse>
             {
                 Success = false,
-                ErrorMessage = "No se pudo conectar con la API.",
+                ErrorMessage = AppStrings.Translate("No se pudo conectar con la API."),
                 StatusCode = 0
             };
         }
@@ -84,7 +89,7 @@ public sealed class ApiClient
             return new ApiResult<TResponse>
             {
                 Success = false,
-                ErrorMessage = "La solicitud a la API expiro.",
+                ErrorMessage = AppStrings.Translate("La solicitud a la API expiro."),
                 StatusCode = 0
             };
         }
@@ -113,7 +118,7 @@ public sealed class ApiClient
                     return new ApiResult<TResponse>
                     {
                         Success = false,
-                        ErrorMessage = "Respuesta inesperada del servidor.",
+                        ErrorMessage = AppStrings.Translate("Respuesta inesperada del servidor."),
                         StatusCode = (int)response.StatusCode
                     };
                 }
@@ -128,7 +133,7 @@ public sealed class ApiClient
             return new ApiResult<TResponse>
             {
                 Success = false,
-                ErrorMessage = errorMessage,
+                ErrorMessage = AppStrings.TranslateApiMessage(errorMessage, string.Empty),
                 StatusCode = (int)response.StatusCode
             };
         }

@@ -2,6 +2,7 @@ using System.Net;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using PickDriverWeb.Components.Pages;
+using PickDriverWeb.Localization;
 using PickDriverWeb.Tests.Infrastructure;
 using Xunit;
 
@@ -22,7 +23,7 @@ public sealed class ProfileComponentTests
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Redirigiendo al login", cut.Markup);
+            Assert.Contains(AppStrings.Translate("Redirigiendo al login..."), cut.Markup);
             Assert.Contains("/login?returnUrl=%2Fprofile", nav.Uri);
         });
     }
