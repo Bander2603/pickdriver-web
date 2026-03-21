@@ -96,6 +96,22 @@
     text-align: center;
 }
 
+.mobile-apps-panel__note--android {
+    max-width: 36ch;
+    justify-self: center;
+}
+
+.mobile-apps-panel__testers-link {
+    color: #5aa5ff;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+}
+
+.mobile-apps-panel__testers-link:hover,
+.mobile-apps-panel__testers-link:focus-visible {
+    color: #8ac2ff;
+}
+
 .mobile-apps-panel__soon {
     border: 1px dashed rgba(255, 255, 255, 0.25);
     border-radius: 16px;
