@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System;
 
 namespace PickDriverWeb.Models.Races;
 
@@ -13,6 +14,7 @@ public sealed class Race
     public string CountryCode { get; set; } = string.Empty;
     public bool Sprint { get; set; }
     public bool Completed { get; set; }
+    public string Status { get; set; } = string.Empty;
     public DateTimeOffset? Fp1Time { get; set; }
     public DateTimeOffset? Fp2Time { get; set; }
     public DateTimeOffset? Fp3Time { get; set; }
@@ -22,6 +24,36 @@ public sealed class Race
     public DateTimeOffset? RaceTime { get; set; }
     public CircuitData? CircuitData { get; set; }
     public RaceMedia? Media { get; set; }
+
+    [JsonIgnore]
+    public string? NormalizedStatus =>
+        string.IsNullOrWhiteSpace(Status) ? null : Status.Trim().ToLowerInvariant();
+
+    [JsonIgnore]
+    public bool IsCompleted =>
+        NormalizedStatus switch
+        {
+            "completed" => true,
+            "scheduled" => false,
+            "cancelled" => false,
+            _ => Completed
+        };
+
+    [JsonIgnore]
+    public bool IsCancelled => string.Equals(NormalizedStatus, "cancelled", StringComparison.Ordinal);
+
+    [JsonIgnore]
+    public bool IsScheduled =>
+        NormalizedStatus switch
+        {
+            "scheduled" => true,
+            "completed" => false,
+            "cancelled" => false,
+            _ => !Completed
+        };
+
+    [JsonIgnore]
+    public bool IsPlayable => !IsCancelled;
 }
 
 public sealed class RaceMedia

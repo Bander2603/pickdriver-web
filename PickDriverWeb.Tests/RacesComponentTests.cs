@@ -27,6 +27,7 @@ public sealed class RacesComponentTests
                 Name = "Australian Grand Prix",
                 Country = "Australia",
                 CountryCode = "AU",
+                Status = "scheduled",
                 Completed = false
             },
             new()
@@ -36,6 +37,7 @@ public sealed class RacesComponentTests
                 Name = "Chinese Grand Prix",
                 Country = "China",
                 CountryCode = "CN",
+                Status = "scheduled",
                 Completed = false
             }
         };
@@ -79,6 +81,7 @@ public sealed class RacesComponentTests
                 Name = "Australian Grand Prix",
                 Country = "Australia",
                 CountryCode = "AU",
+                Status = "completed",
                 Completed = true
             },
             new()
@@ -88,6 +91,61 @@ public sealed class RacesComponentTests
                 Name = "Chinese Grand Prix",
                 Country = "China",
                 CountryCode = "CN",
+                Status = "scheduled",
+                Completed = false
+            }
+        };
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri?.AbsolutePath.Trim('/') ?? string.Empty;
+            return path == "races"
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(races, options: ApiJson.Options)
+                }
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        ctx.Services.AddPickDriverTestServices(handler);
+
+        var cut = ctx.RenderComponent<Races>();
+
+        cut.WaitForAssertion(() =>
+        {
+            var featuredCards = cut.FindAll("button.race-card--featured");
+            Assert.Single(featuredCards);
+            Assert.Contains("CHINA", featuredCards[0].TextContent, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    [Fact]
+    public void SkipsCancelledRace_WhenHighlightingNextRace()
+    {
+        using var ctx = new TestContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Europe/Madrid");
+
+        var races = new List<Race>
+        {
+            new()
+            {
+                Id = 1,
+                Round = 1,
+                Name = "Australian Grand Prix",
+                Country = "Australia",
+                CountryCode = "AU",
+                Status = "cancelled",
+                Completed = false
+            },
+            new()
+            {
+                Id = 2,
+                Round = 2,
+                Name = "Chinese Grand Prix",
+                Country = "China",
+                CountryCode = "CN",
+                Status = "scheduled",
                 Completed = false
             }
         };
@@ -131,6 +189,7 @@ public sealed class RacesComponentTests
                 Name = "Australian Grand Prix",
                 Country = "Australia",
                 CountryCode = "AU",
+                Status = "completed",
                 Completed = true
             },
             new()
@@ -140,6 +199,7 @@ public sealed class RacesComponentTests
                 Name = "Chinese Grand Prix",
                 Country = "China",
                 CountryCode = "CN",
+                Status = "completed",
                 Completed = true
             }
         };

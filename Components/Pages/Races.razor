@@ -294,7 +294,7 @@ else
         for (var i = 0; i < races.Count; i++)
         {
             var race = races[i];
-            if (!race.Completed)
+            if (race.IsScheduled)
             {
                 return race.Id;
             }

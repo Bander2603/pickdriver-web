@@ -863,14 +863,14 @@ else
     {
         var candidates = new List<Race>();
 
-        if (currentRaceResult.Success && currentRaceResult.Data is not null && !currentRaceResult.Data.Completed)
+        if (currentRaceResult.Success && currentRaceResult.Data is not null && currentRaceResult.Data.IsScheduled)
         {
             candidates.Add(currentRaceResult.Data);
         }
 
         if (upcomingRacesResult.Success && upcomingRacesResult.Data is not null)
         {
-            candidates.AddRange(upcomingRacesResult.Data.Where(race => !race.Completed));
+            candidates.AddRange(upcomingRacesResult.Data.Where(race => race.IsScheduled));
         }
 
         if (league?.InitialRaceRound is int initialRound)
@@ -2131,7 +2131,7 @@ else
         var now = DateTimeOffset.UtcNow;
         foreach (var race in races)
         {
-            if (race.Completed || (race.RaceTime.HasValue && race.RaceTime.Value <= now))
+            if (race.IsCompleted || (!race.IsCancelled && race.RaceTime.HasValue && race.RaceTime.Value <= now))
             {
                 historyRaces.Add(race);
             }
