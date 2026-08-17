@@ -14,7 +14,7 @@ public sealed class RacesComponentTests
     [Fact]
     public void HighlightsFirstIncompleteRace_WhenSeasonStartsWithIncompleteRace()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Europe/Madrid");
 
@@ -55,7 +55,7 @@ public sealed class RacesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler);
 
-        var cut = ctx.RenderComponent<Races>();
+        var cut = ctx.Render<Races>();
 
         cut.WaitForAssertion(() =>
         {
@@ -68,7 +68,7 @@ public sealed class RacesComponentTests
     [Fact]
     public void HighlightsFirstIncompleteRace_AfterCompletedRaces()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Europe/Madrid");
 
@@ -109,7 +109,7 @@ public sealed class RacesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler);
 
-        var cut = ctx.RenderComponent<Races>();
+        var cut = ctx.Render<Races>();
 
         cut.WaitForAssertion(() =>
         {
@@ -122,7 +122,7 @@ public sealed class RacesComponentTests
     [Fact]
     public void SkipsCancelledRace_WhenHighlightingNextRace()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Europe/Madrid");
 
@@ -163,7 +163,7 @@ public sealed class RacesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler);
 
-        var cut = ctx.RenderComponent<Races>();
+        var cut = ctx.Render<Races>();
 
         cut.WaitForAssertion(() =>
         {
@@ -176,7 +176,7 @@ public sealed class RacesComponentTests
     [Fact]
     public void DoesNotHighlightRace_WhenAllRacesAreCompleted()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Europe/Madrid");
 
@@ -217,7 +217,7 @@ public sealed class RacesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler);
 
-        var cut = ctx.RenderComponent<Races>();
+        var cut = ctx.Render<Races>();
 
         cut.WaitForAssertion(() =>
         {
@@ -228,7 +228,7 @@ public sealed class RacesComponentTests
     [Fact]
     public void UsesBrowserTimeZone_ForLocalSchedule()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Asia/Tokyo");
         ctx.JSInterop.Setup<int>("pickdriverRaces.getRowEndIndex", _ => true).SetResult(0);
@@ -259,7 +259,7 @@ public sealed class RacesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler);
 
-        var cut = ctx.RenderComponent<Races>();
+        var cut = ctx.Render<Races>();
         cut.Find("button.race-card").Click();
 
         cut.WaitForAssertion(() =>

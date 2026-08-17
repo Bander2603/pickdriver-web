@@ -295,6 +295,15 @@
     margin-top: 1rem;
 }
 
+.league-hub-info {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid rgba(74, 110, 255, 0.35);
+    border-radius: 0.7rem;
+    color: #cbd5ff;
+    background: rgba(74, 110, 255, 0.1);
+}
+
 .league-hub-turn {
     margin-top: 0.75rem;
     display: grid;
@@ -329,6 +338,14 @@
     border-color: #fbbf24;
 }
 
+.btn-ban:disabled,
+.btn-ban.disabled {
+    color: #d1d5db;
+    background-color: #6b7280;
+    border-color: #6b7280;
+    opacity: 0.7;
+}
+
 .btn-autopick {
     color: #fff;
     background-color: #22c55e;
@@ -338,6 +355,14 @@
 .btn-autopick:hover {
     background-color: #34d399;
     border-color: #34d399;
+}
+
+.btn-autopick:disabled,
+.btn-autopick.disabled {
+    color: #d1d5db;
+    background-color: #6b7280;
+    border-color: #6b7280;
+    opacity: 0.7;
 }
 
 .league-hub-toggle {
@@ -505,6 +530,14 @@
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
+}
+
+.autopick-list__item[draggable="true"] {
+    cursor: grab;
+}
+
+.autopick-list__item[draggable="true"]:active {
+    cursor: grabbing;
 }
 
 .autopick-list__actions {

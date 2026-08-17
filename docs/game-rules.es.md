@@ -119,3 +119,11 @@ Solo aplican si `teamsEnabled = true`.
 - Al iniciar draft se notifica al primer usuario del orden.
 - Al completar un pick se notifica al siguiente usuario.
 - Al publicar resultados se generan notificaciones asociadas a la carrera.
+
+## PickDriver 2.0
+- Los drafts V2 no tienen turnos manuales. Cada miembro mantiene una lista privada reusable.
+- Las listas pueden estar vacías o ser parciales. Si no queda una opción disponible, el slot alineado con `pickOrder` es `null` (missed pick).
+- Con bans, las listas se congelan 24 horas antes de FP1 y la ventana de bans cierra en FP1. Sin bans, el único deadline es FP1.
+- Un ban puede apuntar a cualquier rival con pick, salvo self, compañero o target ya baneado en esa carrera.
+- El presupuesto estacional es 2 por jugador sin teams o 3 compartidos por team.
+- Los picks V2 puntúan al 100 %. Sólo el autopick legacy conserva el 50 %.

@@ -13,13 +13,13 @@ public sealed class ProfileComponentTests
     [Fact]
     public void WhenUnauthenticated_RedirectsToLogin()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
         var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
         nav.NavigateTo("/profile");
 
-        var cut = ctx.RenderComponent<Profile>();
+        var cut = ctx.Render<Profile>();
 
         cut.WaitForAssertion(() =>
         {

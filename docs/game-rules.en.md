@@ -119,3 +119,11 @@ Only apply when `teamsEnabled = true`.
 - Starting the draft notifies the first user in the order.
 - Completing a pick notifies the next user.
 - Publishing results creates notifications tied to the race.
+
+## PickDriver 2.0
+- V2 drafts have no manual turns. Every member keeps a private reusable preference list.
+- Lists may be empty or partial. If no option remains available, the slot aligned with `pickOrder` is `null` (missed pick).
+- With bans, lists freeze 24 hours before FP1 and the ban window closes at FP1. Without bans, FP1 is the only deadline.
+- A ban may target any rival with a pick, except self, a teammate, or a target already banned in that race.
+- The seasonal budget is 2 per player without teams or 3 shared by a team.
+- V2 picks score 100%. Only legacy autopick keeps the 50% rule.

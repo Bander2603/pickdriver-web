@@ -20,6 +20,7 @@ En `appsettings.json` o `appsettings.Development.json`:
 - Intercepta todas las llamadas HTTP y devuelve respuestas mock.
 - Devuelve listas y objetos minimos para que la UI pueda cargar sin backend.
 - Algunos flujos escriben datos (crear liga/equipo, picks) pero no persisten: se responde con datos demo.
+- El mock implementa también GET/PUT de `pick-preferences` y el contrato de respuesta de ban V2 para pruebas locales.
 
 ## Desactivar
 
