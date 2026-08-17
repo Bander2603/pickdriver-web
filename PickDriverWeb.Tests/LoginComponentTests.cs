@@ -17,10 +17,10 @@ public sealed class LoginComponentTests
     [Fact]
     public void Submit_EmptyForm_ShowsValidationMessages()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
-        var cut = ctx.RenderComponent<Login>();
+        var cut = ctx.Render<Login>();
 
         cut.Find("form").Submit();
 
@@ -34,7 +34,7 @@ public sealed class LoginComponentTests
     [Fact]
     public void Submit_ValidCredentials_NavigatesToReturnUrl()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ =>
         {
             return new HttpResponseMessage(HttpStatusCode.OK)
@@ -50,7 +50,7 @@ public sealed class LoginComponentTests
         var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
         nav.NavigateTo("/login?returnUrl=leagues");
 
-        var cut = ctx.RenderComponent<Login>();
+        var cut = ctx.Render<Login>();
 
         cut.Find("#login-email").Change("demo@example.com");
         cut.Find("#login-password").Change("secret");
@@ -62,7 +62,7 @@ public sealed class LoginComponentTests
     [Fact]
     public void Submit_WhenApiFails_ShowsErrorMessage()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ =>
         {
             return new HttpResponseMessage(HttpStatusCode.BadRequest)
@@ -71,7 +71,7 @@ public sealed class LoginComponentTests
             };
         }));
 
-        var cut = ctx.RenderComponent<Login>();
+        var cut = ctx.Render<Login>();
 
         cut.Find("#login-email").Change("demo@example.com");
         cut.Find("#login-password").Change("bad");
@@ -86,7 +86,7 @@ public sealed class LoginComponentTests
     [Fact]
     public void Submit_WhenEmailNotVerified_ShowsResendVerificationAction()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.Services.AddPickDriverTestServices(new StubHttpMessageHandler(_ =>
         {
             return new HttpResponseMessage(HttpStatusCode.Forbidden)
@@ -95,7 +95,7 @@ public sealed class LoginComponentTests
             };
         }));
 
-        var cut = ctx.RenderComponent<Login>();
+        var cut = ctx.Render<Login>();
 
         cut.Find("#login-email").Change("demo@example.com");
         cut.Find("#login-password").Change("secret");

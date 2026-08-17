@@ -10,6 +10,7 @@ namespace PickDriverWeb.Services;
 internal sealed class MockApiMessageHandler : HttpMessageHandler
 {
     private RaceDraft? _draftState;
+    private PickPreferenceSettings _pickPreferences = new();
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -231,6 +232,37 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
             return Ok(BuildDraftResponse(draft));
         }
 
+        if (Is(method, HttpMethod.Post) && IsV2BanRoute(segments))
+        {
+            var payload = request.Content is null
+                ? null
+                : await request.Content.ReadFromJsonAsync<DraftBanRequest>(ApiJson.Options, cancellationToken);
+            if (payload is null)
+            {
+                return Error(HttpStatusCode.BadRequest, "Missing ban target");
+            }
+
+            var draft = DraftState;
+            var targetPickIndex = Enumerable.Range(0, Math.Min(draft.PickOrder.Count, draft.PickedDriverIds.Count))
+                .FirstOrDefault(index => draft.PickOrder[index] == payload.TargetUserId && draft.PickedDriverIds[index] == payload.DriverId, -1);
+            if (targetPickIndex < 0)
+            {
+                return Error(HttpStatusCode.Conflict, "The selected pick is no longer available.");
+            }
+
+            draft.BannedDriverIdsByPickIndex[targetPickIndex] = payload.DriverId;
+            draft.BannedByUserIdsByPickIndex[targetPickIndex] = ResolveUserId();
+            draft.ResolutionRevision = (draft.ResolutionRevision ?? 0) + 1;
+            return Ok(new V2BanResult
+            {
+                DraftId = draft.Id,
+                TargetUserId = payload.TargetUserId,
+                BannedDriverId = payload.DriverId,
+                TargetPickIndex = targetPickIndex,
+                ResolutionRevision = draft.ResolutionRevision.Value
+            });
+        }
+
         if (Is(method, HttpMethod.Get) && Match(segments, "leagues", "autopick", 0, 2))
         {
             return Ok(MockApiData.AutopickSettings);
@@ -239,6 +271,25 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
         if (Is(method, HttpMethod.Put) && Match(segments, "leagues", "autopick", 0, 2))
         {
             return Ok(MockApiData.AutopickSettings);
+        }
+
+        if (Is(method, HttpMethod.Get) && Match(segments, "leagues", "pick-preferences", 0, 2))
+        {
+            return Ok(_pickPreferences);
+        }
+
+        if (Is(method, HttpMethod.Put) && Match(segments, "leagues", "pick-preferences", 0, 2))
+        {
+            var payload = request.Content is null
+                ? null
+                : await request.Content.ReadFromJsonAsync<AutopickSettings>(ApiJson.Options, cancellationToken);
+            _pickPreferences = new PickPreferenceSettings
+            {
+                DriverIds = payload?.DriverIds.Distinct().ToList() ?? new List<int>(),
+                Submitted = true,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            return Ok(_pickPreferences);
         }
 
         if (Is(method, HttpMethod.Post) && Match(segments, "teams"))
@@ -277,6 +328,13 @@ internal sealed class MockApiMessageHandler : HttpMessageHandler
     }
 
     private static bool Is(HttpMethod actual, HttpMethod expected) => actual == expected;
+
+    private static bool IsV2BanRoute(string[] segments)
+        => segments.Length == 6
+            && string.Equals(segments[0], "leagues", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(segments[2], "draft", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(segments[4], "v2", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(segments[5], "ban", StringComparison.OrdinalIgnoreCase);
 
     private static bool Match(string[] segments, string first, string? second = "", int firstIndex = 0, int secondIndex = 1)
     {

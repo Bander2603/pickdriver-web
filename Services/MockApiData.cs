@@ -271,7 +271,8 @@ internal static class MockApiData
         BannedDriverIdsByPickIndex = new List<int?> { null, null, null, null, null, null, null, null },
         CurrentPickIndex = 0,
         MirrorPicks = true,
-        Status = "active"
+        Status = "active",
+        GameplayVersion = "legacy"
     };
 
     public static DraftDeadline DraftDeadlines => new()

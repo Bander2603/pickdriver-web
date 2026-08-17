@@ -16,7 +16,7 @@ public sealed class DashboardComponentTests
     [Fact]
     public void UsesBrowserTimeZone_ForNextRaceDate()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.JSInterop.Setup<string?>("pickdriverRaces.getBrowserTimeZone").SetResult("Asia/Tokyo");
 
@@ -52,7 +52,7 @@ public sealed class DashboardComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler, new FakeAuthSessionStore(session));
 
-        var cut = ctx.RenderComponent<Dashboard>();
+        var cut = ctx.Render<Dashboard>();
 
         cut.WaitForAssertion(() =>
         {

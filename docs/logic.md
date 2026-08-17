@@ -133,3 +133,15 @@ Este documento resume las reglas reales implementadas en la API para ligas, draf
 - Al iniciar draft se notifica al primer usuario del orden.
 - Al completar un pick se notifica al siguiente usuario.
 - Al publicar resultados se generan notificaciones asociadas a la carrera.
+
+## PickDriver 2.0 en Web
+
+- La UI discrimina por `RaceDraft.gameplayVersion`; legacy conserva turnos, pick, ban y autopick sin cambios.
+- V2 muestra el orden sin turnos y usa la lista privada reusable de `pick-preferences`.
+- En `collecting` no se muestran resultados. En `resolved` y `finalized`, `pickedDriverIDs` se renderiza por `pickIndex` junto al jugador correspondiente; `null` significa missed pick. `cancelled` no permite acciones.
+- El botón `Picks` sólo está activo en `collecting` antes de `submissionDeadline`. Desde el deadline queda gris hasta que se carga el siguiente draft.
+- Mirror puede repetir `userID`, por lo que ningún resultado se colapsa por usuario.
+- Sin bans se muestra un deadline. Con bans se muestran submission y cierre de la ventana.
+- Los bans V2 permiten cualquier slot rival elegible, salvo self, compañero o target ya baneado. El presupuesto es estacional: 2 por usuario o 3 compartidos por team.
+- Tras un ban, Web descarta el resultado anterior y vuelve a pedir el draft completo para incorporar `resolutionRevision` y el recálculo de slots.
+- La lista privada de otros miembros nunca se solicita ni se renderiza.

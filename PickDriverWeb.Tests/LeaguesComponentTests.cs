@@ -21,7 +21,7 @@ public sealed class LeaguesComponentTests
     [Fact]
     public void WhenLeaguesEmpty_ShowsEmptyState()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
 
         var session = new AuthSession
         {
@@ -43,7 +43,7 @@ public sealed class LeaguesComponentTests
 
         ctx.Services.AddPickDriverTestServices(handler, new FakeAuthSessionStore(session));
 
-        var cut = ctx.RenderComponent<Leagues>();
+        var cut = ctx.Render<Leagues>();
 
         cut.WaitForAssertion(() =>
         {
@@ -54,7 +54,7 @@ public sealed class LeaguesComponentTests
     [Fact]
     public void WhenLeaguesLoaded_ShowsLeagueRow()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
 
         var session = new AuthSession
         {
@@ -64,7 +64,7 @@ public sealed class LeaguesComponentTests
 
         ctx.Services.AddPickDriverTestServices(new MockApiMessageHandler(), new FakeAuthSessionStore(session));
 
-        var cut = ctx.RenderComponent<Leagues>();
+        var cut = ctx.Render<Leagues>();
 
         cut.WaitForAssertion(() =>
         {
@@ -76,7 +76,7 @@ public sealed class LeaguesComponentTests
     [Fact]
     public async Task WhenAuthEndpointReturns401_LogsOutAndRedirectsToLogin()
     {
-        using var ctx = new TestContext();
+        using var ctx = new BunitContext();
 
         var sessionStore = new FakeAuthSessionStore(new AuthSession
         {
@@ -104,7 +104,7 @@ public sealed class LeaguesComponentTests
         var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
         nav.NavigateTo("/leagues");
 
-        var cut = ctx.RenderComponent<Leagues>();
+        var cut = ctx.Render<Leagues>();
 
         cut.WaitForAssertion(() =>
         {

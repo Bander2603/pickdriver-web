@@ -170,6 +170,13 @@ Notificaciones:
 - PUT /api/leagues/:leagueID/autopick
   - Req: { "driverIDs": [Int] }
   - Res: { "driverIDs": [Int] }
+- GET /api/leagues/:leagueID/pick-preferences
+  - Res: { "driverIDs": [Int], "submitted": Bool, "updatedAt": Date? }
+  - Privado: devuelve exclusivamente la lista del usuario autenticado.
+- PUT /api/leagues/:leagueID/pick-preferences
+  - Req: { "driverIDs": [Int] }
+  - Res: { "driverIDs": [Int], "submitted": true, "updatedAt": Date? }
+  - Las listas V2 vacías y parciales son válidas. No se inicializan desde autopick legacy.
 
 ### Draft picks (auth)
 - POST /api/leagues/:leagueID/draft/:raceID/pick
@@ -178,6 +185,10 @@ Notificaciones:
 - POST /api/leagues/:leagueID/draft/:raceID/ban
   - Req: { "targetUserID": Int, "driverID": Int }
   - Res: DraftResponse
+- POST /api/leagues/:leagueID/draft/:raceID/v2/ban
+  - Req: { "targetUserID": Int, "driverID": Int }
+  - Res: { "draftID": Int, "targetUserID": Int, "bannedDriverID": Int, "targetPickIndex": Int, "resolutionRevision": Int }
+  - Tras éxito, el cliente debe volver a descargar el detalle completo.
 
 ### Teams (auth)
 - POST /api/teams
@@ -240,13 +251,13 @@ F1Team:
 { "id": Int, "seasonID": Int, "name": String, "color": String }
 
 RaceDraft:
-{ "id": Int, "league": { "id": Int }, "raceID": Int, "pickOrder": [Int], "currentPickIndex": Int, "mirrorPicks": Bool, "status": String, "pickedDriverIDs": [Int?], "bannedDriverIDs": [Int], "bannedDriverIDsByPickIndex": [Int?] }
+{ "id": Int, "league": { "id": Int }, "raceID": Int, "pickOrder": [Int], "currentPickIndex": Int, "mirrorPicks": Bool, "status": String, "gameplayVersion": "legacy"|"v2", "resolutionState": String?, "resolutionRevision": Int?, "submissionDeadline": Date?, "banWindowClosesAt": Date?, "pickedDriverIDs": [Int?], "bannedDriverIDs": [Int], "bannedDriverIDsByPickIndex": [Int?], "bannedByUserIDsByPickIndex": [Int?], "bansUsedByUserID": { "<userID>": Int }, "bansUsedByTeamID": { "<teamID>": Int }, "banLimitPerActor": Int }
   - pickedDriverIDs esta alineado con pickOrder (mismo largo), con null si no hay pick vigente o fue baneado.
   - bannedDriverIDs contiene todos los driver_id con is_banned = true para el draft.
   - bannedDriverIDsByPickIndex esta alineado con pickOrder (mismo largo); contiene el ultimo driver baneado para esa posicion o null si no hay baneos.
 
 DraftDeadline:
-{ "raceID": Int, "leagueID": Int, "firstHalfDeadline": Date, "secondHalfDeadline": Date }
+{ "raceID": Int, "leagueID": Int, "firstHalfDeadline": Date, "secondHalfDeadline": Date, "gameplayVersion": String?, "submissionDeadline": Date?, "banWindowClosesAt": Date? }
 
 DraftResponse:
 { "status": String, "currentPickIndex": Int, "nextUserID": Int?, "bannedDriverIDs": [Int], "pickedDriverIDs": [Int], "yourTurn": Bool, "yourDeadline": Date }

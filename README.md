@@ -17,6 +17,7 @@ Blazor Server web client for the PickDriver fantasy F1 experience. This repo foc
 - Cooldown timers (5 min) for verification/reset email actions
 - Leagues management (create/join/delete)
 - Draft flow and standings UI
+- PickDriver 2.0 reusable private pick lists, indexed public results, and ban windows
 - Profile management (username, password update/reset, account deletion)
 - Mock/demo mode (no backend required)
 
@@ -67,6 +68,8 @@ Enable the mock API to run without the backend:
 ```
 
 See `docs/demo.md` for details.
+
+The dual legacy/V2 draft behavior is documented in `docs/pickdriver-2.0.md`.
 
 ## Tests
 
